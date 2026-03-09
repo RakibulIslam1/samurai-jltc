@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 
+export const runtime = 'nodejs'
+
 interface ContactFormData {
   name: string
   email: string
@@ -15,7 +17,7 @@ function isValidEmail(email: string): boolean {
 export async function POST(request: Request) {
   try {
     const body: ContactFormData = await request.json()
-    const { name, email, subject, message } = body
+    const { name, email, subject, message, phone } = body
 
     // Server-side validation
     if (!name || !email || !subject || !message) {
@@ -39,9 +41,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // In production, integrate with an email service (e.g., Resend, SendGrid, Nodemailer)
-    // For now, we log the submission and return success
-    console.log('Contact form submission:', { name, email, subject })
+    // Store in Firestore if admin SDK is configured
+    try {
+      const { getAdminDb } = await import('@/lib/firebase-admin')
+      const db = getAdminDb()
+      await db.collection('contactMessages').add({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone?.trim() ?? '',
+        subject,
+        message: message.trim(),
+        status: 'new',
+        createdAt: new Date().toISOString(),
+      })
+    } catch (dbErr) {
+      // Log but don't fail — the contact form should still respond successfully
+      console.error('Failed to save contact message to Firestore:', dbErr)
+    }
 
     return NextResponse.json(
       {
