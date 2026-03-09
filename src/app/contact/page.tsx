@@ -28,10 +28,27 @@ interface FormErrors {
 }
 
 const contactInfo = [
-  { icon: '📍', label: 'Address', value: '123 Sakura Street, Tokyo District' },
-  { icon: '📧', label: 'Email', value: 'info@samurai-jltc.com', href: 'mailto:info@samurai-jltc.com' },
-  { icon: '📞', label: 'Phone', value: '+81 (0) 00-0000-0000', href: 'tel:+81000000000' },
-  { icon: '🕐', label: 'Hours', value: 'Mon–Fri: 9am–8pm  |  Sat: 10am–5pm' },
+  {
+    section: 'Bangladesh Office',
+    items: [
+      { icon: '📍', label: 'Address', value: 'House-298, Shadinota Sharoni Road, Jamtula Mur, Uttar Badda, Dhaka-1212' },
+      { icon: '📞', label: 'Mobile', value: '01601687773', href: 'tel:+8801601687773' },
+      { icon: '📞', label: 'Mobile', value: '01967016700', href: 'tel:+8801967016700' },
+    ],
+  },
+  {
+    section: 'Japan Office',
+    items: [
+      { icon: '📍', label: 'Address', value: 'Tokyo to Kita ku Akabane Nishi 4-35-5 Sakauekup101' },
+      { icon: '📞', label: 'Mobile', value: '+81 70-9039-4475', href: 'tel:+817090394475' },
+    ],
+  },
+  {
+    section: 'Email',
+    items: [
+      { icon: '📧', label: 'Email', value: 'miahsuzan818@gmail.com', href: 'mailto:miahsuzan818@gmail.com' },
+    ],
+  },
 ]
 
 function validateForm(data: FormData): FormErrors {
@@ -127,27 +144,31 @@ export default function ContactPage() {
             {/* Contact Info */}
             <aside aria-label="Contact information">
               <h2 className="text-2xl font-bold text-secondary mb-6">Contact Information</h2>
-              <div className="space-y-4">
-                {contactInfo.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100"
-                  >
-                    <span className="text-2xl mt-0.5" aria-hidden="true">{item.icon}</span>
-                    <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">
-                        {item.label}
-                      </p>
-                      {item.href ? (
-                        <a
-                          href={item.href}
-                          className="text-secondary hover:text-primary transition-colors font-medium text-sm"
-                        >
-                          {item.value}
-                        </a>
-                      ) : (
-                        <p className="text-secondary font-medium text-sm">{item.value}</p>
-                      )}
+              <div className="space-y-6">
+                {contactInfo.map((group) => (
+                  <div key={group.section} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+                    <p className="text-xs text-primary font-bold uppercase tracking-wider mb-3">{group.section}</p>
+                    <div className="space-y-3">
+                      {group.items.map((item, idx) => (
+                        <div key={idx} className="flex items-start gap-3">
+                          <span className="text-xl mt-0.5" aria-hidden="true">{item.icon}</span>
+                          <div>
+                            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">
+                              {item.label}
+                            </p>
+                            {item.href ? (
+                              <a
+                                href={item.href}
+                                className="text-secondary hover:text-primary transition-colors font-medium text-sm"
+                              >
+                                {item.value}
+                              </a>
+                            ) : (
+                              <p className="text-secondary font-medium text-sm">{item.value}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
