@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { useAuth } from '@/components/AuthProvider'
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -14,6 +15,7 @@ const navLinks = [
 export default function Header() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
+  const { user, isAdmin, signOut } = useAuth()
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
@@ -49,9 +51,31 @@ export default function Header() {
           ))}
         </ul>
 
-        <Link href="/contact" className="hidden md:inline-block btn-primary text-sm py-2">
-          Enroll Now
-        </Link>
+        <div className="hidden md:flex items-center gap-3">
+          {user ? (
+            <>
+              {isAdmin && (
+                <Link href="/admin" className="font-medium text-secondary hover:text-primary transition-colors">
+                  Admin
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="btn-secondary text-sm py-2"
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <Link href="/login" className="font-medium text-secondary hover:text-primary transition-colors">
+              Sign In
+            </Link>
+          )}
+          <Link href="/contact" className="btn-primary text-sm py-2">
+            Enroll Now
+          </Link>
+        </div>
 
         {/* Mobile hamburger */}
         <button
@@ -88,6 +112,39 @@ export default function Header() {
                 </Link>
               </li>
             ))}
+            <li>
+              {user ? (
+                <div className="space-y-2">
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="block font-medium transition-colors hover:text-primary text-secondary px-2 py-1"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Admin
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    className="w-full text-left font-medium transition-colors hover:text-primary text-secondary px-2 py-1"
+                    onClick={() => {
+                      void signOut()
+                      setMenuOpen(false)
+                    }}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="block font-medium transition-colors hover:text-primary text-secondary px-2 py-1"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Sign In
+                </Link>
+              )}
+            </li>
             <li>
               <Link
                 href="/contact"

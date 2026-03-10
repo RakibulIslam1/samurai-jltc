@@ -115,6 +115,8 @@ samurai-jltc/
 | `/about` | About — mission, team, values |
 | `/services` | Courses (N5–N1, JLPT, Business, Conversation) + pricing |
 | `/contact` | Contact form with client-side validation |
+| `/login` | Sign in and sign up (Firebase Authentication) |
+| `/admin` | Admin panel to view registered user data from Firestore |
 | `/api/contact` | API route (POST) — handles form submissions |
 
 ---
@@ -148,6 +150,111 @@ Create a `.env.local` file (never commit this):
 ```
 RESEND_API_KEY=re_xxxxxxxxxxxx
 ```
+
+---
+
+## Firebase Setup (Auth + Firestore)
+
+This project now includes the essential features from your other repo:
+
+- Email/password `Sign In` and `Sign Up`
+- User profile creation in Firestore on sign-up
+- Admin panel to view user data
+
+### 1. Create Firebase Project
+
+1. Go to Firebase Console and create/select a project.
+2. Enable **Authentication > Sign-in method > Email/Password**.
+3. Create a **Web App** inside the project and copy config values.
+4. Enable **Firestore Database** in production mode.
+
+### 2. Configure Environment Variables
+
+Copy `.env.example` to `.env.local` and fill values:
+
+```bash
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_SUPER_ADMIN_EMAIL=your-admin-email@example.com
+```
+
+### 3. Firestore Collections Used
+
+- `profiles/{uid}`
+  - `fullName`
+  - `email`
+  - `educationLevel`
+  - `instituteName`
+  - `createdAt`
+- `adminSettings/roles`
+  - `emails: string[]` (optional extra admin emails)
+
+### 4. Add Initial Admin Access
+
+- Set your main admin in `NEXT_PUBLIC_SUPER_ADMIN_EMAIL`.
+- Optional: add more admins by manually creating `adminSettings/roles` document with:
+
+```json
+{
+  "emails": ["other-admin@example.com"]
+}
+```
+
+### 5. Example Firestore Rules (Minimum)
+
+Use these as a starting point and update admin email values:
+
+```txt
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && request.auth.token.email == 'your-admin-email@example.com';
+    }
+
+    function isExtraAdmin() {
+      return signedIn()
+        && request.auth.token.email in get(/databases/$(database)/documents/adminSettings/roles).data.emails;
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || isExtraAdmin();
+    }
+
+    match /profiles/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if isAdmin();
+    }
+
+    match /adminSettings/{docId} {
+      allow read: if isAdmin();
+      allow write: if isSuperAdmin();
+    }
+  }
+}
+```
+
+### 6. Run and Test
+
+```bash
+npm run dev
+```
+
+Test flow:
+
+1. Open `/login` and create a user.
+2. Confirm `profiles` document appears in Firestore.
+3. Sign in with admin email.
+4. Open `/admin` and verify user list is visible.
 
 ---
 
