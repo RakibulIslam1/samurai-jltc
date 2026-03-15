@@ -7,9 +7,13 @@ import { useAuth } from '@/components/AuthProvider'
 
 const baseNavLinks = [
   { href: '/', label: 'Home' },
-  { href: '/about', label: 'About' },
-  { href: '/services', label: 'Services' },
-  { href: '/contact', label: 'Contact' },
+  { href: '/about', label: 'About Us' },
+  { href: '/services#japan-student-visa', label: 'Japan Student Visa' },
+  { href: '/services#ssw-visa', label: 'SSW Visa' },
+  { href: '/services#working-visa', label: 'Working Visa' },
+  { href: '/services#malaysia-student-visa', label: 'Malaysia Student Visa' },
+  { href: '/services#air-ticket-service', label: 'Air Ticket Service' },
+  { href: '/contact', label: 'Contact Home' },
   { href: '/contact', label: 'Enroll Now' },
 ]
 

@@ -275,10 +275,10 @@ export default function ContactPage() {
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="text-2xl font-bold text-secondary mb-4">Contact Details</h2>
             <div className="space-y-2 text-sm text-gray-700">
-              <p><span className="font-semibold">Address 1:</span> {settings.addressPrimary}</p>
-              {settings.addressSecondary && <p><span className="font-semibold">Address 2:</span> {settings.addressSecondary}</p>}
-              <p><span className="font-semibold">Phone 1:</span> {settings.phones[0] || '-'}</p>
-              <p><span className="font-semibold">Phone 2:</span> {settings.phones[1] || '-'}</p>
+              <p><span className="font-semibold">Bangladesh Office:</span> {settings.addressPrimary}</p>
+              {settings.addressSecondary && <p><span className="font-semibold">Japan Office:</span> {settings.addressSecondary}</p>}
+              <p><span className="font-semibold">Bangladesh Phone:</span> {settings.phones[0] || '-'}</p>
+              <p><span className="font-semibold">Japan Phone:</span> {settings.phones[1] || '-'}</p>
               <p><span className="font-semibold">Email:</span> {settings.email}</p>
               <p><span className="font-semibold">Office Hours:</span> {settings.officeHours}</p>
             </div>

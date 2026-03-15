@@ -541,14 +541,14 @@ export default function AdminPage() {
               required
               value={contactForm.addressPrimary}
               onChange={(event) => setContactForm((prev) => ({ ...prev, addressPrimary: event.target.value }))}
-              placeholder="Address 1"
+              placeholder="Bangladesh Office Address"
               className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <input
               type="text"
               value={contactForm.addressSecondary}
               onChange={(event) => setContactForm((prev) => ({ ...prev, addressSecondary: event.target.value }))}
-              placeholder="Address 2"
+              placeholder="Japan Office Address"
               className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <input
@@ -556,14 +556,14 @@ export default function AdminPage() {
               required
               value={contactForm.phones[0] || ''}
               onChange={(event) => setContactForm((prev) => ({ ...prev, phones: [event.target.value, prev.phones[1] || ''] }))}
-              placeholder="Phone 1"
+              placeholder="Bangladesh Office Phone"
               className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <input
               type="text"
               value={contactForm.phones[1] || ''}
               onChange={(event) => setContactForm((prev) => ({ ...prev, phones: [prev.phones[0] || '', event.target.value] }))}
-              placeholder="Phone 2"
+              placeholder="Japan Office Phone"
               className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <input
