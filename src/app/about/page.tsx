@@ -1,71 +1,167 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'About Us',
   description:
-    'Samurai Japanese Language Training Center is a Japanese language institute and student visa consultancy firm for Bangladesh students.',
+    'Learn about Samurai Japanese Language Training Center and our education and visa consultancy support for Bangladeshi students.',
 }
 
-const coreAreas = [
+const team = [
   {
-    title: 'Language Teaching',
-    description: 'Comprehensive Japanese courses from JLPT N5 to N1 level by experienced native and bilingual teachers.',
+    name: 'Language Teaching',
+    role: 'Japanese Course Support',
+    bio: 'Comprehensive Japanese courses from JLPT N5 to N1 level with support from experienced native and bilingual teachers.',
+    initials: 'LT',
   },
   {
-    title: 'Student Visa Processing',
-    description: 'Complete support for Japan student visa applications, from documentation to interview preparation.',
+    name: 'Student Visa Processing',
+    role: 'A to Z Consultancy',
+    bio: 'Complete support for student visa applications for Japan, including documentation and interview preparation.',
+    initials: 'SV',
   },
   {
-    title: 'Career Counseling',
-    description: 'Guidance on school selection, part-time job opportunities, and post-graduation employment support.',
+    name: 'Career Counseling',
+    role: 'Study to Employment Path',
+    bio: 'Guidance for selecting Japanese schools, part-time opportunities, and post-graduation employment support.',
+    initials: 'CC',
+  },
+]
+
+const values = [
+  {
+    icon: '🎯',
+    title: '3rd Largest Economy',
+    description: 'Japan is one of the world\'s leading developed economies and a strong destination for higher education.',
+  },
+  {
+    icon: '🤝',
+    title: 'Hi-Tech Country',
+    description: 'Japan is known for advanced technology and innovation across education and industry.',
+  },
+  {
+    icon: '🌸',
+    title: 'High Part-Time Salary',
+    description: 'Students can access comparatively strong part-time earning opportunities.',
+  },
+  {
+    icon: '🚀',
+    title: 'Visa-Free Access',
+    description: 'Japan offers strong long-term global mobility opportunities for successful students.',
   },
 ]
 
 export default function AboutPage() {
   return (
     <>
+      {/* Hero */}
       <section className="bg-secondary text-white py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-gold font-semibold text-sm uppercase tracking-widest mb-3">About Us</p>
-          <h1 className="text-4xl md:text-5xl font-extrabold mb-6 max-w-3xl">
+          <p className="text-gold font-semibold text-sm uppercase tracking-widest mb-3">
+            About Us
+          </p>
+          <h1 className="text-4xl md:text-5xl font-extrabold mb-6 max-w-2xl">
             About Our School
           </h1>
-          <p className="text-gray-300 text-lg max-w-4xl leading-relaxed">
-            Samurai Japanese Language Training Center is one of the best Japanese language learning centers and
-            student visa consultancy firms in Bangladesh. We offer comprehensive educational services to Bangladeshi
-            students who have the intention of studying in Japan and other developed countries.
+          <p className="text-gray-300 text-lg max-w-2xl leading-relaxed">
+            Samurai Japanese Language Training Center is one of the best Japanese language learning centers and student visa consultancy firms in Bangladesh.
           </p>
         </div>
       </section>
 
-      <section className="bg-white py-20" aria-labelledby="core-services-heading">
+      {/* Mission & Vision */}
+      <section className="bg-white py-20" aria-labelledby="mission-heading">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 id="core-services-heading" className="section-heading text-center mb-12">
-            What We Do
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 id="mission-heading" className="section-heading">
+                Our Mission
+              </h2>
+              <p className="text-gray-600 leading-relaxed mb-6">
+                We offer comprehensive educational services to Bangladeshi students who intend to study in Japan and other developed countries.
+              </p>
+              <p className="text-gray-600 leading-relaxed">
+                We provide language teaching, student visa processing, and career counseling with practical support at every stage.
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-2xl p-8 border border-gray-100">
+              <h2 className="text-2xl font-bold text-secondary mb-4">Our Vision</h2>
+              <p className="text-gray-600 leading-relaxed mb-6">
+                To prepare students with language fluency and process support so they can confidently pursue study and career goals abroad.
+              </p>
+              <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-xl border border-primary/20">
+                <span className="text-3xl" aria-hidden="true">⛩</span>
+                <p className="text-secondary font-medium italic">
+                  &ldquo;Your first step to Japan starts with the right language and guidance.&rdquo;
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Team */}
+      <section className="bg-gray-50 py-20" aria-labelledby="team-heading">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 id="team-heading" className="section-heading">
+            Meet Our Instructors
           </h2>
+          <p className="section-subheading mx-auto mb-12">
+            Our team of dedicated educators brings native fluency, cultural insight, and years
+            of classroom experience to every lesson.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {coreAreas.map((item) => (
-              <article key={item.title} className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
-                <h3 className="text-xl font-bold text-secondary mb-3">{item.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{item.description}</p>
+            {team.map((member) => (
+              <article
+                key={member.name}
+                className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 hover:shadow-md transition-shadow text-left"
+              >
+                <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold mb-4" aria-hidden="true">
+                  {member.initials}
+                </div>
+                <h3 className="text-xl font-bold text-secondary mb-1">{member.name}</h3>
+                <p className="text-primary font-medium text-sm mb-3">{member.role}</p>
+                <p className="text-gray-600 text-sm leading-relaxed">{member.bio}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-gray-50 py-20" aria-labelledby="mission-heading">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 id="mission-heading" className="section-heading mb-6">Our Commitment</h2>
-          <p className="text-gray-700 leading-relaxed max-w-4xl mb-4">
-            We focus on quality Japanese language education, transparent consultancy, and complete student support.
-            From beginner-level learning to visa preparation and career guidance, our goal is to make each student
-            confident and ready for international opportunities.
+      {/* Values */}
+      <section className="bg-white py-20" aria-labelledby="values-heading">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 id="values-heading" className="section-heading">
+            Our Core Values
+          </h2>
+          <p className="section-subheading mx-auto mb-12">
+            Everything we do is guided by a set of principles that put students and culture first.
           </p>
-          <p className="text-gray-700 leading-relaxed max-w-4xl">
-            NAT-TEST Preparation, JLPT Preparation, Student Visa Processing, and Career Counseling are the key areas
-            where we deliver practical and result-driven support.
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {values.map((value) => (
+              <div
+                key={value.title}
+                className="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:border-primary transition-colors text-left"
+              >
+                <div className="text-3xl mb-3" aria-hidden="true">{value.icon}</div>
+                <h3 className="text-lg font-bold text-secondary mb-2">{value.title}</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">{value.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="bg-secondary text-white py-16">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold mb-4">Start Learning With Us</h2>
+          <p className="text-gray-300 mb-8">
+            NAT-TEST Preparation, JLPT Preparation, Student Visa Processing, and Career Counseling in one place.
           </p>
+          <Link href="/services" className="btn-primary text-base">
+            View Our Courses
+          </Link>
         </div>
       </section>
     </>
