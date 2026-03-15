@@ -20,16 +20,23 @@ type AuthUser = {
 type UserProfile = {
   fullName: string
   email: string
+  phone: string
   educationLevel: string
   instituteName: string
-  createdAt: number
+  addressPrimary: string
+  addressSecondary: string
+  profilePhotoDataUrl: string
+  createdAt?: number
+  updatedAt?: number
 }
 
 type AuthContextType = {
   user: AuthUser | null
+  profile: UserProfile | null
   loading: boolean
   isAdmin: boolean
   isSuperAdmin: boolean
+  adminEmails: string[]
   signInWithEmail: (email: string, password: string) => Promise<void>
   signUpWithEmail: (
     fullName: string,
@@ -39,9 +46,13 @@ type AuthContextType = {
     instituteName: string,
   ) => Promise<void>
   signOut: () => Promise<void>
+  updateUserProfile: (profile: UserProfile) => Promise<void>
+  grantAdminAccess: (email: string) => Promise<void>
+  revokeAdminAccess: (email: string) => Promise<void>
 }
 
-const SUPER_ADMIN_EMAIL = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || '').trim().toLowerCase()
+const SUPER_ADMIN_EMAIL =
+  (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || 'rakibul.rir06@gmail.com').trim().toLowerCase()
 const ADMIN_ROLES_DOC = 'roles'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -56,8 +67,23 @@ function normalizeEmails(items: unknown) {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [adminEmails, setAdminEmails] = useState<string[]>([])
+  const [adminEmails, setAdminEmails] = useState<string[]>(SUPER_ADMIN_EMAIL ? [SUPER_ADMIN_EMAIL] : [])
+
+  const ensureProfileDoc = async (uid: string, nextProfile: UserProfile) => {
+    const db = getFirestoreDb()
+    if (!db) return
+
+    await setDoc(
+      doc(db, 'profiles', uid),
+      {
+        ...nextProfile,
+        updatedAt: Date.now(),
+      },
+      { merge: true },
+    )
+  }
 
   useEffect(() => {
     const firebaseAuth = getFirebaseAuth()
@@ -69,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (!firebaseUser?.email) {
         setUser(null)
+        setProfile(null)
         setLoading(false)
         return
       }
@@ -91,20 +118,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           getDoc(adminRolesRef).catch(() => null),
         ])
 
-        if (!profileSnap?.exists()) {
-          const profileDoc: UserProfile = {
-            fullName: syncedUser.fullName,
-            email: syncedUser.email,
-            educationLevel: '',
-            instituteName: '',
-            createdAt: Date.now(),
-          }
+        const baseProfile: UserProfile = {
+          fullName: syncedUser.fullName,
+          email: syncedUser.email,
+          phone: '',
+          educationLevel: '',
+          instituteName: '',
+          addressPrimary: '',
+          addressSecondary: '',
+          profilePhotoDataUrl: '',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        }
 
-          await setDoc(profileRef, profileDoc, { merge: true }).catch(() => undefined)
+        if (!profileSnap?.exists()) {
+          await setDoc(profileRef, baseProfile, { merge: true }).catch(() => undefined)
+          setProfile(baseProfile)
+        } else {
+          const data = profileSnap.data() as Partial<UserProfile>
+          setProfile({
+            fullName: data.fullName || syncedUser.fullName,
+            email: data.email || syncedUser.email,
+            phone: data.phone || '',
+            educationLevel: data.educationLevel || '',
+            instituteName: data.instituteName || '',
+            addressPrimary: data.addressPrimary || '',
+            addressSecondary: data.addressSecondary || '',
+            profilePhotoDataUrl: data.profilePhotoDataUrl || '',
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          })
         }
 
         const storedAdminEmails = normalizeEmails(adminRolesSnap?.data()?.emails)
-        setAdminEmails(storedAdminEmails)
+        const nextAdminEmails = Array.from(new Set([SUPER_ADMIN_EMAIL, ...storedAdminEmails].filter(Boolean)))
+        setAdminEmails(nextAdminEmails)
       }
 
       setLoading(false)
@@ -143,17 +191,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const db = getFirestoreDb()
     if (db) {
       try {
-        await setDoc(
-          doc(db, 'profiles', credential.user.uid),
-          {
-            fullName: fullName.trim(),
-            email: email.trim(),
-            educationLevel: educationLevel.trim(),
-            instituteName: instituteName.trim(),
-            createdAt: Date.now(),
-          },
-          { merge: true },
-        )
+        const nextProfile: UserProfile = {
+          fullName: fullName.trim(),
+          email: email.trim(),
+          phone: '',
+          educationLevel: educationLevel.trim(),
+          instituteName: instituteName.trim(),
+          addressPrimary: '',
+          addressSecondary: '',
+          profilePhotoDataUrl: '',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        }
+
+        await setDoc(doc(db, 'profiles', credential.user.uid), nextProfile, { merge: true })
+        setProfile(nextProfile)
       } catch (error) {
         const code =
           typeof error === 'object' && error !== null && 'code' in error
@@ -178,9 +230,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     const firebaseAuth = getFirebaseAuth()
     setUser(null)
+    setProfile(null)
     if (firebaseAuth) {
       await firebaseSignOut(firebaseAuth)
     }
+  }
+
+  const updateUserProfile = async (nextProfile: UserProfile) => {
+    if (!user) {
+      throw new Error('You must be signed in to update profile.')
+    }
+
+    await ensureProfileDoc(user.id, {
+      ...nextProfile,
+      fullName: nextProfile.fullName.trim(),
+      email: nextProfile.email.trim(),
+      phone: nextProfile.phone.trim(),
+      educationLevel: nextProfile.educationLevel.trim(),
+      instituteName: nextProfile.instituteName.trim(),
+      addressPrimary: nextProfile.addressPrimary.trim(),
+      addressSecondary: nextProfile.addressSecondary.trim(),
+    })
+
+    setProfile({ ...nextProfile, updatedAt: Date.now() })
+    setUser((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        fullName: nextProfile.fullName.trim() || prev.fullName,
+        email: nextProfile.email.trim() || prev.email,
+      }
+    })
+  }
+
+  const grantAdminAccess = async (email: string) => {
+    if (!user?.email || user.email.toLowerCase() !== SUPER_ADMIN_EMAIL) {
+      throw new Error('Only super admin can add admin users.')
+    }
+
+    const normalized = email.trim().toLowerCase()
+    if (!normalized) {
+      throw new Error('Admin email is required.')
+    }
+
+    const db = getFirestoreDb()
+    if (!db) {
+      throw new Error('Firestore is not configured.')
+    }
+
+    const nextAdmins = Array.from(new Set([SUPER_ADMIN_EMAIL, ...adminEmails, normalized].filter(Boolean)))
+    await setDoc(doc(db, 'adminSettings', ADMIN_ROLES_DOC), { emails: nextAdmins, updatedAt: Date.now() }, { merge: true })
+    setAdminEmails(nextAdmins)
+  }
+
+  const revokeAdminAccess = async (email: string) => {
+    if (!user?.email || user.email.toLowerCase() !== SUPER_ADMIN_EMAIL) {
+      throw new Error('Only super admin can remove admin users.')
+    }
+
+    const normalized = email.trim().toLowerCase()
+    if (!normalized || normalized === SUPER_ADMIN_EMAIL) {
+      throw new Error('Super admin access cannot be removed.')
+    }
+
+    const db = getFirestoreDb()
+    if (!db) {
+      throw new Error('Firestore is not configured.')
+    }
+
+    const nextAdmins = adminEmails.filter((value) => value !== normalized)
+    await setDoc(doc(db, 'adminSettings', ADMIN_ROLES_DOC), { emails: nextAdmins, updatedAt: Date.now() }, { merge: true })
+    setAdminEmails(nextAdmins)
   }
 
   const isSuperAdmin = useMemo(() => {
@@ -196,12 +316,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        profile,
         loading,
         isAdmin,
         isSuperAdmin,
+        adminEmails,
         signInWithEmail,
         signUpWithEmail,
         signOut,
+        updateUserProfile,
+        grantAdminAccess,
+        revokeAdminAccess,
       }}
     >
       {children}

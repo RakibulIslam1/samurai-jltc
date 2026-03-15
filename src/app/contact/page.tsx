@@ -1,336 +1,357 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  addDoc,
+  collection,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from 'firebase/firestore'
+import { getFirestoreDb } from '@/lib/firebase'
+import { useAuth } from '@/components/AuthProvider'
+import { defaultSiteContactSettings, loadSiteContactSettings, type SiteContactSettings } from '@/lib/siteContact'
 
-const subjectOptions = [
-  'General Inquiry',
-  'Course Enrollment',
-  'JLPT Preparation',
-  'Business Japanese',
-  'Private Tutoring',
-  'Pricing & Plans',
-  'Other',
-]
+type ThreadMessage = {
+  sender: 'user' | 'admin'
+  text: string
+  createdAt: number
+  senderName?: string
+}
 
-interface FormData {
+type ContactThread = {
+  id: string
+  userId: string
   name: string
   email: string
-  phone: string
   subject: string
-  message: string
+  status: string
+  updatedAt: number
+  createdAt: number
+  messages: ThreadMessage[]
 }
 
-interface FormErrors {
-  name?: string
-  email?: string
-  subject?: string
-  message?: string
-}
-
-const contactInfo = [
-  { icon: '📍', label: 'Address', value: '123 Sakura Street, Tokyo District' },
-  { icon: '📧', label: 'Email', value: 'info@samurai-jltc.com', href: 'mailto:info@samurai-jltc.com' },
-  { icon: '📞', label: 'Phone', value: '+81 (0) 00-0000-0000', href: 'tel:+81000000000' },
-  { icon: '🕐', label: 'Hours', value: 'Mon–Fri: 9am–8pm  |  Sat: 10am–5pm' },
-]
-
-function validateForm(data: FormData): FormErrors {
-  const errors: FormErrors = {}
-  if (!data.name.trim()) errors.name = 'Name is required.'
-  if (!data.email.trim()) {
-    errors.email = 'Email is required.'
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-    errors.email = 'Please enter a valid email address.'
+function toTimestampValue(value: unknown) {
+  if (typeof value === 'number') return value
+  if (value && typeof value === 'object' && 'toMillis' in value) {
+    const fn = value.toMillis
+    if (typeof fn === 'function') return fn.call(value)
   }
-  if (!data.subject) errors.subject = 'Please select a subject.'
-  if (!data.message.trim()) {
-    errors.message = 'Message is required.'
-  } else if (data.message.trim().length < 10) {
-    errors.message = 'Message must be at least 10 characters.'
-  }
-  return errors
+  return Date.now()
 }
 
 export default function ContactPage() {
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    email: '',
-    phone: '',
-    subject: '',
-    message: '',
-  })
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [serverMessage, setServerMessage] = useState('')
+  const { user } = useAuth()
+  const [settings, setSettings] = useState<SiteContactSettings>(defaultSiteContactSettings)
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle')
+  const [error, setError] = useState('')
+  const [threads, setThreads] = useState<ContactThread[]>([])
+  const [activeThreadId, setActiveThreadId] = useState('')
+  const [replyText, setReplyText] = useState('')
+  const [isReplying, setIsReplying] = useState(false)
 
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-    if (errors[name as keyof FormErrors]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }))
+  const activeThread = useMemo(() => threads.find((thread) => thread.id === activeThreadId) || null, [threads, activeThreadId])
+
+  const loadThreads = async () => {
+    if (!user) {
+      setThreads([])
+      setActiveThreadId('')
+      return
+    }
+
+    const db = getFirestoreDb()
+    if (!db) return
+
+    const q = query(collection(db, 'contactMessages'), where('userId', '==', user.id))
+    const snap = await getDocs(q)
+
+    const items = snap.docs
+      .map((docItem) => {
+        const data = docItem.data() as Partial<ContactThread>
+        return {
+          id: docItem.id,
+          userId: data.userId || user.id,
+          name: data.name || user.fullName,
+          email: data.email || user.email,
+          subject: data.subject || 'No subject',
+          status: data.status || 'new',
+          updatedAt: toTimestampValue(data.updatedAt),
+          createdAt: toTimestampValue(data.createdAt),
+          messages: Array.isArray(data.messages) ? data.messages : [],
+        }
+      })
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+
+    setThreads(items)
+    if (!activeThreadId && items.length > 0) {
+      setActiveThreadId(items[0].id)
     }
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const validationErrors = validateForm(formData)
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors)
+  useEffect(() => {
+    void loadSiteContactSettings().then(setSettings)
+  }, [])
+
+  useEffect(() => {
+    if (!user) {
+      setForm((prev) => ({ ...prev, name: '', email: '' }))
       return
     }
+
+    setForm((prev) => ({
+      ...prev,
+      name: prev.name || user.fullName,
+      email: prev.email || user.email,
+    }))
+
+    void loadThreads()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
+
+  const submitMessage = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError('')
+
+    if (!user) {
+      setError('Please sign in to send and continue chat messages.')
+      return
+    }
+
+    const messageText = form.message.trim()
+    if (messageText.length < 10) {
+      setError('Message should be at least 10 characters.')
+      return
+    }
+
+    const db = getFirestoreDb()
+    if (!db) {
+      setError('Firestore is not configured.')
+      return
+    }
+
     setStatus('loading')
+
     try {
-      const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      await addDoc(collection(db, 'contactMessages'), {
+        userId: user.id,
+        name: form.name.trim() || user.fullName,
+        email: form.email.trim() || user.email,
+        emailLower: (form.email.trim() || user.email).toLowerCase(),
+        subject: form.subject.trim(),
+        status: 'new',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: [
+          {
+            sender: 'user',
+            text: messageText,
+            createdAt: Date.now(),
+            senderName: form.name.trim() || user.fullName,
+          },
+        ],
+        serverUpdatedAt: serverTimestamp(),
       })
-      const data = await res.json()
-      if (res.ok) {
-        setStatus('success')
-        setServerMessage(data.message)
-        setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
-      } else {
-        setStatus('error')
-        setServerMessage(data.error || 'Something went wrong. Please try again.')
-      }
-    } catch {
+
+      setStatus('success')
+      setForm((prev) => ({ ...prev, subject: '', message: '' }))
+      await loadThreads()
+    } catch (submitError) {
       setStatus('error')
-      setServerMessage('Unable to send message. Please try again later.')
+      setError(submitError instanceof Error ? submitError.message : 'Failed to send message.')
+    }
+  }
+
+  const submitReply = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!user || !activeThread || !replyText.trim()) return
+
+    const db = getFirestoreDb()
+    if (!db) {
+      setError('Firestore is not configured.')
+      return
+    }
+
+    setIsReplying(true)
+    try {
+      const nextMessages = [
+        ...(activeThread.messages || []),
+        {
+          sender: 'user' as const,
+          text: replyText.trim(),
+          createdAt: Date.now(),
+          senderName: user.fullName,
+        },
+      ]
+
+      await setDoc(
+        doc(db, 'contactMessages', activeThread.id),
+        {
+          messages: nextMessages,
+          updatedAt: Date.now(),
+          status: 'open',
+          serverUpdatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      )
+
+      setReplyText('')
+      await loadThreads()
+    } catch (replyError) {
+      setError(replyError instanceof Error ? replyError.message : 'Failed to send reply.')
+    } finally {
+      setIsReplying(false)
     }
   }
 
   return (
-    <>
-      {/* Hero */}
-      <section className="bg-secondary text-white py-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-gold font-semibold text-sm uppercase tracking-widest mb-3">
-            Get In Touch
-          </p>
-          <h1 className="text-4xl md:text-5xl font-extrabold mb-6 max-w-2xl">
-            Contact Us
-          </h1>
-          <p className="text-gray-300 text-lg max-w-2xl leading-relaxed">
-            Have a question or ready to enroll? We&apos;d love to hear from you. Fill out the
-            form and we&apos;ll get back to you within 24 hours.
-          </p>
+    <section className="mx-auto max-w-6xl px-4 py-10">
+      <h1 className="section-heading mb-2">Contact Us</h1>
+      <p className="text-gray-600 mb-8">Send us a message and continue the conversation from this page.</p>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="text-2xl font-bold text-secondary mb-6">Send Message</h2>
+
+          {!user && (
+            <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Please sign in to start chatting.
+            </p>
+          )}
+
+          <form className="space-y-4" onSubmit={submitMessage}>
+            <input
+              type="text"
+              required
+              placeholder="Your Name"
+              value={form.name}
+              disabled={!user}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input
+              type="email"
+              required
+              placeholder="Your Email"
+              value={form.email}
+              disabled={!user}
+              onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Subject"
+              value={form.subject}
+              onChange={(event) => setForm((prev) => ({ ...prev, subject: event.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <textarea
+              required
+              rows={5}
+              placeholder="Write your message..."
+              value={form.message}
+              onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+
+            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            {status === 'success' && (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">Message sent successfully.</p>
+            )}
+
+            <button type="submit" disabled={status === 'loading'} className="btn-primary w-full disabled:opacity-70">
+              {status === 'loading' ? 'Sending...' : 'Send Message'}
+            </button>
+          </form>
         </div>
-      </section>
 
-      {/* Content */}
-      <section className="bg-white py-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            {/* Contact Info */}
-            <aside aria-label="Contact information">
-              <h2 className="text-2xl font-bold text-secondary mb-6">Contact Information</h2>
-              <div className="space-y-4">
-                {contactInfo.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100"
-                  >
-                    <span className="text-2xl mt-0.5" aria-hidden="true">{item.icon}</span>
-                    <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">
-                        {item.label}
-                      </p>
-                      {item.href ? (
-                        <a
-                          href={item.href}
-                          className="text-secondary hover:text-primary transition-colors font-medium text-sm"
-                        >
-                          {item.value}
-                        </a>
-                      ) : (
-                        <p className="text-secondary font-medium text-sm">{item.value}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </aside>
-
-            {/* Form */}
-            <div className="lg:col-span-2">
-              <h2 className="text-2xl font-bold text-secondary mb-6">Send Us a Message</h2>
-
-              {status === 'success' ? (
-                <div
-                  role="alert"
-                  className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center"
-                >
-                  <p className="text-4xl mb-4" aria-hidden="true">✅</p>
-                  <h3 className="text-xl font-bold text-green-800 mb-2">Message Sent!</h3>
-                  <p className="text-green-700">{serverMessage}</p>
-                  <button
-                    onClick={() => setStatus('idle')}
-                    className="mt-6 btn-primary text-sm py-2"
-                  >
-                    Send Another Message
-                  </button>
-                </div>
-              ) : (
-                <form
-                  onSubmit={handleSubmit}
-                  noValidate
-                  aria-label="Contact form"
-                  className="space-y-6"
-                >
-                  {status === 'error' && (
-                    <div role="alert" className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
-                      {serverMessage}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {/* Name */}
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-semibold text-secondary mb-1.5">
-                        Full Name <span className="text-primary" aria-hidden="true">*</span>
-                      </label>
-                      <input
-                        id="name"
-                        name="name"
-                        type="text"
-                        autoComplete="name"
-                        required
-                        value={formData.name}
-                        onChange={handleChange}
-                        aria-describedby={errors.name ? 'name-error' : undefined}
-                        aria-invalid={!!errors.name}
-                        className={`w-full px-4 py-3 rounded-xl border text-secondary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors ${
-                          errors.name ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'
-                        }`}
-                        placeholder="Taro Yamada"
-                      />
-                      {errors.name && (
-                        <p id="name-error" role="alert" className="mt-1.5 text-xs text-red-600">
-                          {errors.name}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Email */}
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-semibold text-secondary mb-1.5">
-                        Email Address <span className="text-primary" aria-hidden="true">*</span>
-                      </label>
-                      <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        value={formData.email}
-                        onChange={handleChange}
-                        aria-describedby={errors.email ? 'email-error' : undefined}
-                        aria-invalid={!!errors.email}
-                        className={`w-full px-4 py-3 rounded-xl border text-secondary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors ${
-                          errors.email ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'
-                        }`}
-                        placeholder="taro@example.com"
-                      />
-                      {errors.email && (
-                        <p id="email-error" role="alert" className="mt-1.5 text-xs text-red-600">
-                          {errors.email}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {/* Phone */}
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-semibold text-secondary mb-1.5">
-                        Phone <span className="text-gray-400 font-normal">(optional)</span>
-                      </label>
-                      <input
-                        id="phone"
-                        name="phone"
-                        type="tel"
-                        autoComplete="tel"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white text-secondary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                        placeholder="+81 00-0000-0000"
-                      />
-                    </div>
-
-                    {/* Subject */}
-                    <div>
-                      <label htmlFor="subject" className="block text-sm font-semibold text-secondary mb-1.5">
-                        Subject <span className="text-primary" aria-hidden="true">*</span>
-                      </label>
-                      <select
-                        id="subject"
-                        name="subject"
-                        required
-                        value={formData.subject}
-                        onChange={handleChange}
-                        aria-describedby={errors.subject ? 'subject-error' : undefined}
-                        aria-invalid={!!errors.subject}
-                        className={`w-full px-4 py-3 rounded-xl border text-secondary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors ${
-                          errors.subject ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'
-                        }`}
-                      >
-                        <option value="">Select a subject…</option>
-                        {subjectOptions.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.subject && (
-                        <p id="subject-error" role="alert" className="mt-1.5 text-xs text-red-600">
-                          {errors.subject}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Message */}
-                  <div>
-                    <label htmlFor="message" className="block text-sm font-semibold text-secondary mb-1.5">
-                      Message <span className="text-primary" aria-hidden="true">*</span>
-                    </label>
-                    <textarea
-                      id="message"
-                      name="message"
-                      rows={5}
-                      required
-                      value={formData.message}
-                      onChange={handleChange}
-                      aria-describedby={errors.message ? 'message-error' : undefined}
-                      aria-invalid={!!errors.message}
-                      className={`w-full px-4 py-3 rounded-xl border text-secondary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-y ${
-                        errors.message ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'
-                      }`}
-                      placeholder="Tell us about your learning goals, current level, or any questions you have…"
-                    />
-                    {errors.message && (
-                      <p id="message-error" role="alert" className="mt-1.5 text-xs text-red-600">
-                        {errors.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={status === 'loading'}
-                    className="btn-primary w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {status === 'loading' ? 'Sending…' : 'Send Message'}
-                  </button>
-                </form>
-              )}
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-2xl font-bold text-secondary mb-4">Contact Details</h2>
+            <div className="space-y-2 text-sm text-gray-700">
+              <p><span className="font-semibold">Address 1:</span> {settings.addressPrimary}</p>
+              {settings.addressSecondary && <p><span className="font-semibold">Address 2:</span> {settings.addressSecondary}</p>}
+              <p><span className="font-semibold">Phone 1:</span> {settings.phones[0] || '-'}</p>
+              <p><span className="font-semibold">Phone 2:</span> {settings.phones[1] || '-'}</p>
+              <p><span className="font-semibold">Email:</span> {settings.email}</p>
+              <p><span className="font-semibold">Office Hours:</span> {settings.officeHours}</p>
             </div>
           </div>
+
+          {user && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="text-2xl font-bold text-secondary mb-4">Your Conversations</h2>
+
+              {threads.length === 0 ? (
+                <p className="text-sm text-gray-600">No conversations yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="max-h-64 space-y-2 overflow-auto pr-1">
+                    {threads.map((thread) => (
+                      <button
+                        key={thread.id}
+                        type="button"
+                        onClick={() => setActiveThreadId(thread.id)}
+                        className={`w-full rounded-xl border px-3 py-2 text-left text-sm ${
+                          activeThreadId === thread.id ? 'border-primary bg-red-50' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <p className="font-semibold text-secondary">{thread.subject || 'No subject'}</p>
+                        <p className="text-xs text-gray-500">{new Date(thread.updatedAt).toLocaleString()}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 p-3">
+                    {!activeThread ? (
+                      <p className="text-sm text-gray-600">Select a conversation.</p>
+                    ) : (
+                      <>
+                        <div className="max-h-56 space-y-2 overflow-auto pr-1">
+                          {(activeThread.messages || []).map((message, index) => (
+                            <div
+                              key={`${message.createdAt}-${index}`}
+                              className={`rounded-lg px-3 py-2 text-sm ${
+                                message.sender === 'admin' ? 'bg-green-50 text-green-900' : 'bg-red-50 text-secondary'
+                              }`}
+                            >
+                              <p className="mb-1 text-xs font-semibold">{message.sender === 'admin' ? 'Admin' : 'You'}</p>
+                              <p className="whitespace-pre-wrap">{message.text}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <form onSubmit={submitReply} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                          <input
+                            type="text"
+                            value={replyText}
+                            onChange={(event) => setReplyText(event.target.value)}
+                            placeholder="Reply..."
+                            className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isReplying}
+                            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-70"
+                          >
+                            {isReplying ? 'Sending...' : 'Reply'}
+                          </button>
+                        </form>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </section>
-    </>
+      </div>
+    </section>
   )
 }
