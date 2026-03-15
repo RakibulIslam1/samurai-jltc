@@ -215,7 +215,7 @@ export default function ContactPage() {
       <p className="text-gray-600 mb-8">Send us a message and continue the conversation from this page.</p>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div id="enroll" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm scroll-mt-24">
           <h2 className="text-2xl font-bold text-secondary mb-6">Send Message</h2>
 
           {!user && (
