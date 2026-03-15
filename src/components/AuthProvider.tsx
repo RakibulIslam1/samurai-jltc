@@ -142,17 +142,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const db = getFirestoreDb()
     if (db) {
-      await setDoc(
-        doc(db, 'profiles', credential.user.uid),
-        {
-          fullName: fullName.trim(),
-          email: email.trim(),
-          educationLevel: educationLevel.trim(),
-          instituteName: instituteName.trim(),
-          createdAt: Date.now(),
-        },
-        { merge: true },
-      )
+      try {
+        await setDoc(
+          doc(db, 'profiles', credential.user.uid),
+          {
+            fullName: fullName.trim(),
+            email: email.trim(),
+            educationLevel: educationLevel.trim(),
+            instituteName: instituteName.trim(),
+            createdAt: Date.now(),
+          },
+          { merge: true },
+        )
+      } catch (error) {
+        const code =
+          typeof error === 'object' && error !== null && 'code' in error
+            ? String((error as { code?: unknown }).code || '')
+            : ''
+        const message = error instanceof Error ? error.message.toLowerCase() : ''
+        const permissionDenied =
+          code === 'permission-denied' ||
+          code === 'firestore/permission-denied' ||
+          message.includes('missing or insufficient permissions')
+
+        if (!permissionDenied) {
+          throw error
+        }
+
+        // Auth account is already created; continue sign-up and let admin update rules.
+        console.warn('[AuthProvider] Firestore profile write blocked by rules.')
+      }
     }
   }
 
