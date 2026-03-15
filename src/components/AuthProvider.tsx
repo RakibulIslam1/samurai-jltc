@@ -42,8 +42,6 @@ type AuthContextType = {
     fullName: string,
     email: string,
     password: string,
-    educationLevel: string,
-    instituteName: string,
   ) => Promise<void>
   signOut: () => Promise<void>
   updateUserProfile: (profile: UserProfile) => Promise<void>
@@ -174,8 +172,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fullName: string,
     email: string,
     password: string,
-    educationLevel: string,
-    instituteName: string,
   ) => {
     const firebaseAuth = getFirebaseAuth()
     if (!firebaseAuth) {
@@ -195,8 +191,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fullName: fullName.trim(),
           email: email.trim(),
           phone: '',
-          educationLevel: educationLevel.trim(),
-          instituteName: instituteName.trim(),
+          educationLevel: '',
+          instituteName: '',
           addressPrimary: '',
           addressSecondary: '',
           profilePhotoDataUrl: '',

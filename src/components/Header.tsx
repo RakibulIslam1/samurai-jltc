@@ -5,17 +5,19 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 
-const navLinks = [
+const baseNavLinks = [
   { href: '/', label: 'Home' },
   { href: '/about', label: 'About' },
   { href: '/services', label: 'Services' },
   { href: '/contact', label: 'Contact' },
+  { href: '/contact', label: 'Enroll Now' },
 ]
 
 export default function Header() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const { user, isAdmin, signOut } = useAuth()
+  const navLinks = user ? [...baseNavLinks, { href: '/profile', label: 'Profile' }] : baseNavLinks
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
@@ -35,7 +37,7 @@ export default function Header() {
         {/* Desktop navigation */}
         <ul className="hidden md:flex items-center gap-8" role="list">
           {navLinks.map((link) => (
-            <li key={link.href}>
+            <li key={`${link.href}-${link.label}`}>
               <Link
                 href={link.href}
                 className={`font-medium transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary rounded ${
@@ -72,9 +74,6 @@ export default function Header() {
               Sign In
             </Link>
           )}
-          <Link href="/contact" className="btn-primary text-sm py-2">
-            Enroll Now
-          </Link>
         </div>
 
         {/* Mobile hamburger */}
@@ -99,7 +98,7 @@ export default function Header() {
         >
           <ul className="flex flex-col gap-4" role="list">
             {navLinks.map((link) => (
-              <li key={link.href}>
+              <li key={`${link.href}-${link.label}`}>
                 <Link
                   href={link.href}
                   className={`block font-medium transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary rounded px-2 py-1 ${
@@ -144,15 +143,6 @@ export default function Header() {
                   Sign In
                 </Link>
               )}
-            </li>
-            <li>
-              <Link
-                href="/contact"
-                className="btn-primary text-sm py-2 text-center block"
-                onClick={() => setMenuOpen(false)}
-              >
-                Enroll Now
-              </Link>
             </li>
           </ul>
         </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
 
@@ -79,7 +79,7 @@ export default function ProfilePage() {
     profilePhotoDataUrl: profile?.profilePhotoDataUrl || '',
   })
 
-  useMemo(() => {
+  useEffect(() => {
     setForm({
       fullName: profile?.fullName || user?.fullName || '',
       email: profile?.email || user?.email || '',
@@ -135,6 +135,10 @@ export default function ProfilePage() {
     setSuccess('')
 
     try {
+      if (!imageSource && !form.profilePhotoDataUrl) {
+        throw new Error('Profile photo is required. Please upload a photo before saving.')
+      }
+
       let profilePhotoDataUrl = form.profilePhotoDataUrl
       if (imageSource) {
         profilePhotoDataUrl = await createCroppedDataUrl(imageSource)
@@ -164,7 +168,7 @@ export default function ProfilePage() {
   return (
     <section className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="section-heading mb-2">My Profile</h1>
-      <p className="text-gray-600 mb-8">Profile photo is optional. You can update details anytime.</p>
+      <p className="text-gray-600 mb-8">Upload your profile photo and update details anytime.</p>
 
       <form onSubmit={submit} className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -228,7 +232,7 @@ export default function ProfilePage() {
         />
 
         <div className="space-y-4 rounded-xl border border-gray-200 p-4">
-          <p className="text-sm font-semibold text-secondary">Profile Photo (optional)</p>
+          <p className="text-sm font-semibold text-secondary">Profile Photo (required)</p>
           <input type="file" accept="image/*" onChange={onFileChange} />
 
           {imageSource && (

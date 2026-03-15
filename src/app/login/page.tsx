@@ -31,8 +31,6 @@ export default function LoginPage() {
     fullName: '',
     email: '',
     password: '',
-    educationLevel: '',
-    instituteName: '',
   })
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -46,8 +44,6 @@ export default function LoginPage() {
           form.fullName,
           form.email,
           form.password,
-          form.educationLevel,
-          form.instituteName,
         )
       } else {
         await signInWithEmail(form.email, form.password)
@@ -99,22 +95,6 @@ export default function LoginPage() {
                 placeholder="Full Name"
                 value={form.fullName}
                 onChange={(event) => setForm((prev) => ({ ...prev, fullName: event.target.value }))}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <input
-                type="text"
-                required
-                placeholder="Education Level"
-                value={form.educationLevel}
-                onChange={(event) => setForm((prev) => ({ ...prev, educationLevel: event.target.value }))}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <input
-                type="text"
-                required
-                placeholder="Institute Name"
-                value={form.instituteName}
-                onChange={(event) => setForm((prev) => ({ ...prev, instituteName: event.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </>
