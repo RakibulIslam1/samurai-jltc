@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -13,8 +14,9 @@ import {
 import { getFirestoreDb } from '@/lib/firebase'
 import { useAuth } from '@/components/AuthProvider'
 import { defaultSiteContactSettings, type SiteContactSettings } from '@/lib/siteContact'
+import type { GalleryItem } from '@/lib/gallery'
 
-type AdminTab = 'profiles' | 'messages' | 'contact' | 'admins'
+type AdminTab = 'profiles' | 'messages' | 'contact' | 'gallery' | 'admins'
 
 type UserRow = {
   uid: string
@@ -48,6 +50,15 @@ type ContactThread = {
   messages: ThreadMessage[]
 }
 
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('Failed to read image file.'))
+    reader.readAsDataURL(file)
+  })
+}
+
 function toTimestampValue(value: unknown) {
   if (typeof value === 'number') return value
   if (value && typeof value === 'object' && 'toMillis' in value) {
@@ -76,6 +87,13 @@ export default function AdminPage() {
 
   const [contactForm, setContactForm] = useState<SiteContactSettings>(defaultSiteContactSettings)
   const [savingContact, setSavingContact] = useState(false)
+
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([])
+  const [galleryLoading, setGalleryLoading] = useState(false)
+  const [galleryDescription, setGalleryDescription] = useState('')
+  const [galleryImageDataUrl, setGalleryImageDataUrl] = useState('')
+  const [uploadingGallery, setUploadingGallery] = useState(false)
+  const [deletingGalleryId, setDeletingGalleryId] = useState('')
 
   const [adminEmailInput, setAdminEmailInput] = useState('')
   const [adminActionLoading, setAdminActionLoading] = useState(false)
@@ -187,10 +205,43 @@ export default function AdminPage() {
     }
   }
 
+  const loadGalleryItems = async () => {
+    const db = getFirestoreDb()
+    if (!db) {
+      setError('Firestore is not configured. Add NEXT_PUBLIC_FIREBASE_* variables.')
+      return
+    }
+
+    setGalleryLoading(true)
+    try {
+      const snap = await getDocs(collection(db, 'galleryItems'))
+      const items = snap.docs
+        .map((docItem) => {
+          const data = docItem.data() as Partial<GalleryItem>
+          return {
+            id: docItem.id,
+            imageDataUrl: data.imageDataUrl || '',
+            description: data.description || '',
+            createdAt: toTimestampValue(data.createdAt),
+            updatedAt: toTimestampValue(data.updatedAt),
+            uploadedBy: data.uploadedBy,
+          }
+        })
+        .filter((item) => item.imageDataUrl)
+        .sort((a, b) => b.createdAt - a.createdAt)
+
+      setGalleryItems(items)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load gallery items.')
+    } finally {
+      setGalleryLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (loading || !user || !isAdmin) return
     setError('')
-    void Promise.all([loadProfiles(), loadThreads(), loadContactSettings()])
+    void Promise.all([loadProfiles(), loadThreads(), loadContactSettings(), loadGalleryItems()])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user?.id, isAdmin])
 
@@ -300,6 +351,83 @@ export default function AdminPage() {
     }
   }
 
+  const onGalleryFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file for the gallery.')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image is too large. Please upload an image under 5 MB.')
+      return
+    }
+
+    try {
+      const dataUrl = await readAsDataUrl(file)
+      setGalleryImageDataUrl(dataUrl)
+      setError('')
+    } catch (fileError) {
+      setError(fileError instanceof Error ? fileError.message : 'Failed to read image file.')
+    }
+  }
+
+  const uploadGalleryItem = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!galleryImageDataUrl) {
+      setError('Please choose an image before uploading.')
+      return
+    }
+
+    if (!galleryDescription.trim()) {
+      setError('Please add a short description for the gallery image.')
+      return
+    }
+
+    const db = getFirestoreDb()
+    if (!db || !user) return
+
+    setUploadingGallery(true)
+    setError('')
+    try {
+      await addDoc(collection(db, 'galleryItems'), {
+        imageDataUrl: galleryImageDataUrl,
+        description: galleryDescription.trim(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        uploadedBy: user.email,
+        serverUpdatedAt: serverTimestamp(),
+      })
+
+      setGalleryDescription('')
+      setGalleryImageDataUrl('')
+      await loadGalleryItems()
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Failed to upload gallery image.')
+    } finally {
+      setUploadingGallery(false)
+    }
+  }
+
+  const deleteGalleryItem = async (id: string) => {
+    const db = getFirestoreDb()
+    if (!db) return
+
+    setDeletingGalleryId(id)
+    setError('')
+    try {
+      await deleteDoc(doc(db, 'galleryItems', id))
+      setGalleryItems((prev) => prev.filter((item) => item.id !== id))
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete gallery item.')
+    } finally {
+      setDeletingGalleryId('')
+    }
+  }
+
   const addAdmin = async () => {
     if (!adminEmailInput.trim()) return
     setAdminActionLoading(true)
@@ -380,6 +508,9 @@ export default function AdminPage() {
         </button>
         <button type="button" onClick={() => setActiveTab('contact')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'contact' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
           Contact Settings
+        </button>
+        <button type="button" onClick={() => setActiveTab('gallery')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'gallery' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
+          Gallery
         </button>
         {isSuperAdmin && (
           <button type="button" onClick={() => setActiveTab('admins')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'admins' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
@@ -588,6 +719,71 @@ export default function AdminPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {activeTab === 'gallery' && (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-xl font-bold text-secondary">Upload Gallery Image</h2>
+            <form onSubmit={uploadGalleryItem} className="space-y-4">
+              <input type="file" accept="image/*" onChange={onGalleryFileChange} />
+              <textarea
+                rows={2}
+                required
+                value={galleryDescription}
+                onChange={(event) => setGalleryDescription(event.target.value)}
+                placeholder="Write one-line image description"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              {galleryImageDataUrl && (
+                <img
+                  src={galleryImageDataUrl}
+                  alt="Gallery preview"
+                  className="h-40 w-full max-w-sm rounded-xl border border-gray-200 object-cover"
+                />
+              )}
+              <button type="submit" disabled={uploadingGallery} className="btn-primary disabled:opacity-70">
+                {uploadingGallery ? 'Uploading...' : 'Upload to Gallery'}
+              </button>
+            </form>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-xl font-bold text-secondary">Gallery Items</h2>
+            {galleryLoading && <p className="text-sm text-gray-600">Loading gallery items...</p>}
+            {!galleryLoading && galleryItems.length === 0 && (
+              <p className="text-sm text-gray-600">No gallery images uploaded yet.</p>
+            )}
+
+            {!galleryLoading && galleryItems.length > 0 && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {galleryItems.map((item) => (
+                  <article key={item.id} className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                    <img src={item.imageDataUrl} alt={item.description || 'Gallery image'} className="h-48 w-full object-cover" />
+                    <div className="space-y-3 p-3">
+                      <p className="text-sm text-gray-700">{item.description}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-gray-500">{new Date(item.createdAt).toLocaleDateString()}</span>
+                        <button
+                          type="button"
+                          className="rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-200 disabled:opacity-70"
+                          disabled={deletingGalleryId === item.id}
+                          onClick={() => {
+                            if (window.confirm('Delete this gallery image?')) {
+                              void deleteGalleryItem(item.id)
+                            }
+                          }}
+                        >
+                          {deletingGalleryId === item.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -9,6 +9,7 @@ const baseNavLinks = [
   { href: '/', label: 'Home' },
   { href: '/about', label: 'About' },
   { href: '/services', label: 'Services' },
+  { href: '/gallery', label: 'Gallery' },
   { href: '/contact', label: 'Contact' },
   { href: '/contact', label: 'Enroll Now' },
 ]
