@@ -11,6 +11,7 @@ export type TeamMember = {
   createdAt: number
   updatedAt: number
   uploadedBy?: string
+  description?: string // Only for instructors
 }
 
 function toTimestampValue(value: unknown) {

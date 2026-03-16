@@ -109,6 +109,7 @@ export default function AdminPage() {
   const [teamName, setTeamName] = useState('')
   const [teamRole, setTeamRole] = useState<TeamRole>('instructor')
   const [teamImageDataUrl, setTeamImageDataUrl] = useState('')
+  const [teamDescription, setTeamDescription] = useState('') // Only for instructor
   const [savingTeam, setSavingTeam] = useState(false)
   const [deletingTeamId, setDeletingTeamId] = useState('')
 
@@ -648,6 +649,11 @@ export default function AdminPage() {
       return
     }
 
+    if (teamRole === 'instructor' && !teamDescription.trim()) {
+      setError('Please add a description for instructor.')
+      return
+    }
+
     const db = getFirestoreDb()
     if (!db || !user) return
 
@@ -661,6 +667,7 @@ export default function AdminPage() {
         updatedAt: Date.now(),
         uploadedBy: user.email,
         serverUpdatedAt: serverTimestamp(),
+        description: teamRole === 'instructor' ? teamDescription.trim() : undefined,
       }
 
       if (teamRole === 'chairman' || teamRole === 'managing-director') {
@@ -682,6 +689,7 @@ export default function AdminPage() {
       setTeamName('')
       setTeamRole('instructor')
       setTeamImageDataUrl('')
+      setTeamDescription('')
       await loadTeamMembers()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Failed to save team member.')
@@ -1164,6 +1172,17 @@ export default function AdminPage() {
                 </select>
               </div>
 
+              {teamRole === 'instructor' && (
+                <textarea
+                  rows={2}
+                  required
+                  value={teamDescription}
+                  onChange={(event) => setTeamDescription(event.target.value)}
+                  placeholder="Instructor description"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              )}
+
               <input type="file" accept="image/*" onChange={onTeamFileChange} />
 
               {teamImageDataUrl && (
@@ -1202,6 +1221,9 @@ export default function AdminPage() {
                               : 'Language Instructor'}
                         </p>
                         <p className="text-sm font-semibold text-secondary">{member.name}</p>
+                        {member.role === 'instructor' && member.description && (
+                          <p className="mt-2 text-xs text-gray-700">{member.description}</p>
+                        )}
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs text-gray-500">{new Date(member.createdAt).toLocaleDateString()}</span>
