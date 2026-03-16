@@ -14,11 +14,23 @@ const baseNavLinks = [
   { href: '/contact#enroll', label: 'Enroll Now' },
 ]
 
+function UserIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6" aria-hidden="true">
+      <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
 export default function Header() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const { user, isAdmin, signOut } = useAuth()
-  const navLinks = user ? [...baseNavLinks, { href: '/profile', label: 'Profile' }] : baseNavLinks
+
+  // Admin Panel appears in the middle nav; Profile is an icon on the right — no Profile link in navLinks
+  const navLinks = isAdmin
+    ? [...baseNavLinks, { href: '/admin', label: 'Admin Panel' }]
+    : baseNavLinks
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
@@ -54,14 +66,19 @@ export default function Header() {
           ))}
         </ul>
 
+        {/* Right-side auth buttons */}
         <div className="hidden md:flex items-center gap-3">
           {user ? (
             <>
-              {isAdmin && (
-                <Link href="/admin" className="font-medium text-secondary hover:text-primary transition-colors">
-                  Admin
-                </Link>
-              )}
+              <Link
+                href="/profile"
+                className={`rounded-full p-1.5 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                  pathname === '/profile' ? 'text-primary' : 'text-secondary'
+                }`}
+                aria-label="My Profile"
+              >
+                <UserIcon />
+              </Link>
               <button
                 type="button"
                 onClick={() => void signOut()}
@@ -114,16 +131,15 @@ export default function Header() {
             ))}
             <li>
               {user ? (
-                <div className="space-y-2">
-                  {isAdmin && (
-                    <Link
-                      href="/admin"
-                      className="block font-medium transition-colors hover:text-primary text-secondary px-2 py-1"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      Admin
-                    </Link>
-                  )}
+                <div className="space-y-2 border-t border-gray-100 pt-3">
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-2 font-medium transition-colors hover:text-primary text-secondary px-2 py-1"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <UserIcon />
+                    <span>My Profile</span>
+                  </Link>
                   <button
                     type="button"
                     className="w-full text-left font-medium transition-colors hover:text-primary text-secondary px-2 py-1"
