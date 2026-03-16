@@ -16,8 +16,9 @@ import { useAuth } from '@/components/AuthProvider'
 import { defaultSiteContactSettings, type SiteContactSettings } from '@/lib/siteContact'
 import type { GalleryItem } from '@/lib/gallery'
 import type { AchievementItem } from '@/lib/achievement'
+import type { TeamMember, TeamRole } from '@/lib/team'
 
-type AdminTab = 'profiles' | 'messages' | 'contact' | 'gallery' | 'achievement' | 'admins'
+type AdminTab = 'profiles' | 'messages' | 'contact' | 'gallery' | 'achievement' | 'team' | 'admins'
 
 type UserRow = {
   uid: string
@@ -102,6 +103,14 @@ export default function AdminPage() {
   const [achievementImageDataUrl, setAchievementImageDataUrl] = useState('')
   const [uploadingAchievement, setUploadingAchievement] = useState(false)
   const [deletingAchievementId, setDeletingAchievementId] = useState('')
+
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [teamLoading, setTeamLoading] = useState(false)
+  const [teamName, setTeamName] = useState('')
+  const [teamRole, setTeamRole] = useState<TeamRole>('instructor')
+  const [teamImageDataUrl, setTeamImageDataUrl] = useState('')
+  const [savingTeam, setSavingTeam] = useState(false)
+  const [deletingTeamId, setDeletingTeamId] = useState('')
 
   const [adminEmailInput, setAdminEmailInput] = useState('')
   const [adminActionLoading, setAdminActionLoading] = useState(false)
@@ -279,10 +288,67 @@ export default function AdminPage() {
     }
   }
 
+  const loadTeamMembers = async () => {
+    const db = getFirestoreDb()
+    if (!db) {
+      setError('Firestore is not configured. Add NEXT_PUBLIC_FIREBASE_* variables.')
+      return
+    }
+
+    setTeamLoading(true)
+    try {
+      const snap = await getDocs(collection(db, 'teamMembers'))
+      const roleRank: Record<TeamRole, number> = {
+        chairman: 0,
+        'managing-director': 1,
+        instructor: 2,
+      }
+
+      const items = snap.docs
+        .map((docItem) => {
+          const data = docItem.data() as Partial<TeamMember>
+          if (data.role !== 'chairman' && data.role !== 'managing-director' && data.role !== 'instructor') {
+            return null
+          }
+          return {
+            id: docItem.id,
+            role: data.role,
+            name: data.name || '',
+            imageDataUrl: data.imageDataUrl || '',
+            createdAt: toTimestampValue(data.createdAt),
+            updatedAt: toTimestampValue(data.updatedAt),
+            uploadedBy: data.uploadedBy,
+          }
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item && item.name && item.imageDataUrl))
+        .sort((a, b) => {
+          const rankDiff = roleRank[a.role] - roleRank[b.role]
+          if (rankDiff !== 0) return rankDiff
+          if (a.role === 'instructor' && b.role === 'instructor') {
+            return b.createdAt - a.createdAt
+          }
+          return 0
+        })
+
+      setTeamMembers(items)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load team members.')
+    } finally {
+      setTeamLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (loading || !user || !isAdmin) return
     setError('')
-    void Promise.all([loadProfiles(), loadThreads(), loadContactSettings(), loadGalleryItems(), loadAchievementItems()])
+    void Promise.all([
+      loadProfiles(),
+      loadThreads(),
+      loadContactSettings(),
+      loadGalleryItems(),
+      loadAchievementItems(),
+      loadTeamMembers(),
+    ])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user?.id, isAdmin])
 
@@ -546,6 +612,100 @@ export default function AdminPage() {
     }
   }
 
+  const onTeamFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file for team member.')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image is too large. Please upload an image under 5 MB.')
+      return
+    }
+
+    try {
+      const dataUrl = await readAsDataUrl(file)
+      setTeamImageDataUrl(dataUrl)
+      setError('')
+    } catch (fileError) {
+      setError(fileError instanceof Error ? fileError.message : 'Failed to read image file.')
+    }
+  }
+
+  const saveTeamMember = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!teamName.trim()) {
+      setError('Team member name is required.')
+      return
+    }
+
+    if (!teamImageDataUrl) {
+      setError('Please choose an image for team member.')
+      return
+    }
+
+    const db = getFirestoreDb()
+    if (!db || !user) return
+
+    setSavingTeam(true)
+    setError('')
+    try {
+      const payload = {
+        role: teamRole,
+        name: teamName.trim(),
+        imageDataUrl: teamImageDataUrl,
+        updatedAt: Date.now(),
+        uploadedBy: user.email,
+        serverUpdatedAt: serverTimestamp(),
+      }
+
+      if (teamRole === 'chairman' || teamRole === 'managing-director') {
+        await setDoc(
+          doc(db, 'teamMembers', teamRole),
+          {
+            ...payload,
+            createdAt: Date.now(),
+          },
+          { merge: true },
+        )
+      } else {
+        await addDoc(collection(db, 'teamMembers'), {
+          ...payload,
+          createdAt: Date.now(),
+        })
+      }
+
+      setTeamName('')
+      setTeamRole('instructor')
+      setTeamImageDataUrl('')
+      await loadTeamMembers()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save team member.')
+    } finally {
+      setSavingTeam(false)
+    }
+  }
+
+  const deleteTeamMember = async (id: string) => {
+    const db = getFirestoreDb()
+    if (!db) return
+
+    setDeletingTeamId(id)
+    setError('')
+    try {
+      await deleteDoc(doc(db, 'teamMembers', id))
+      setTeamMembers((prev) => prev.filter((item) => item.id !== id))
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete team member.')
+    } finally {
+      setDeletingTeamId('')
+    }
+  }
+
   const addAdmin = async () => {
     if (!adminEmailInput.trim()) return
     setAdminActionLoading(true)
@@ -632,6 +792,9 @@ export default function AdminPage() {
         </button>
         <button type="button" onClick={() => setActiveTab('achievement')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'achievement' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
           Achievement
+        </button>
+        <button type="button" onClick={() => setActiveTab('team')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'team' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
+          Team
         </button>
         {isSuperAdmin && (
           <button type="button" onClick={() => setActiveTab('admins')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'admins' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
@@ -962,6 +1125,97 @@ export default function AdminPage() {
                           }}
                         >
                           {deletingAchievementId === item.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'team' && (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-2 text-xl font-bold text-secondary">Upload Team Member</h2>
+            <p className="mb-4 text-sm text-gray-600">
+              Chairman and Managing Director are single posts. Uploading again will replace the previous profile.
+            </p>
+            <form onSubmit={saveTeamMember} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <input
+                  type="text"
+                  required
+                  value={teamName}
+                  onChange={(event) => setTeamName(event.target.value)}
+                  placeholder="Team member name"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <select
+                  value={teamRole}
+                  onChange={(event) => setTeamRole(event.target.value as TeamRole)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="chairman">Chairman</option>
+                  <option value="managing-director">Managing Director</option>
+                  <option value="instructor">Language Instructor</option>
+                </select>
+              </div>
+
+              <input type="file" accept="image/*" onChange={onTeamFileChange} />
+
+              {teamImageDataUrl && (
+                <img
+                  src={teamImageDataUrl}
+                  alt="Team member preview"
+                  className="h-40 w-full max-w-sm rounded-xl border border-gray-200 object-cover"
+                />
+              )}
+
+              <button type="submit" disabled={savingTeam} className="btn-primary disabled:opacity-70">
+                {savingTeam ? 'Saving...' : 'Save Team Member'}
+              </button>
+            </form>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-xl font-bold text-secondary">Current Team Members</h2>
+            {teamLoading && <p className="text-sm text-gray-600">Loading team members...</p>}
+            {!teamLoading && teamMembers.length === 0 && (
+              <p className="text-sm text-gray-600">No team members uploaded yet.</p>
+            )}
+
+            {!teamLoading && teamMembers.length > 0 && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {teamMembers.map((member) => (
+                  <article key={member.id} className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                    <img src={member.imageDataUrl} alt={member.name} className="h-48 w-full object-cover" />
+                    <div className="space-y-3 p-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                          {member.role === 'chairman'
+                            ? 'Chairman'
+                            : member.role === 'managing-director'
+                              ? 'Managing Director'
+                              : 'Language Instructor'}
+                        </p>
+                        <p className="text-sm font-semibold text-secondary">{member.name}</p>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-gray-500">{new Date(member.createdAt).toLocaleDateString()}</span>
+                        <button
+                          type="button"
+                          className="rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-200 disabled:opacity-70"
+                          disabled={deletingTeamId === member.id}
+                          onClick={() => {
+                            if (window.confirm('Delete this team member?')) {
+                              void deleteTeamMember(member.id)
+                            }
+                          }}
+                        >
+                          {deletingTeamId === member.id ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
                     </div>

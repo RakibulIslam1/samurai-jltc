@@ -1,32 +1,12 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import TeamSection from '@/components/TeamSection'
 
 export const metadata: Metadata = {
   title: 'About Us',
   description:
     'Learn about Samurai Japanese Language Training Center and our education and visa consultancy support for Bangladeshi students.',
 }
-
-const team = [
-  {
-    name: 'Language Teaching',
-    role: 'Japanese Course Support',
-    bio: 'Comprehensive Japanese courses from JLPT N5 to N1 level with support from experienced native and bilingual teachers.',
-    initials: 'LT',
-  },
-  {
-    name: 'Student Visa Processing',
-    role: 'A to Z Consultancy',
-    bio: 'Complete support for student visa applications for Japan, including documentation and interview preparation.',
-    initials: 'SV',
-  },
-  {
-    name: 'Career Counseling',
-    role: 'Study to Employment Path',
-    bio: 'Guidance for selecting Japanese schools, part-time opportunities, and post-graduation employment support.',
-    initials: 'CC',
-  },
-]
 
 const values = [
   {
@@ -100,33 +80,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Team */}
-      <section className="bg-gray-50 py-20" aria-labelledby="team-heading">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 id="team-heading" className="section-heading">
-            Meet Our Instructors
-          </h2>
-          <p className="section-subheading mx-auto mb-12">
-            Our team of dedicated educators brings native fluency, cultural insight, and years
-            of classroom experience to every lesson.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {team.map((member) => (
-              <article
-                key={member.name}
-                className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 hover:shadow-md transition-shadow text-left"
-              >
-                <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold mb-4" aria-hidden="true">
-                  {member.initials}
-                </div>
-                <h3 className="text-xl font-bold text-secondary mb-1">{member.name}</h3>
-                <p className="text-primary font-medium text-sm mb-3">{member.role}</p>
-                <p className="text-gray-600 text-sm leading-relaxed">{member.bio}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      <TeamSection />
 
       {/* Values */}
       <section className="bg-white py-20" aria-labelledby="values-heading">
