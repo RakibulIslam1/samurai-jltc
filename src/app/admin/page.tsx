@@ -1189,7 +1189,7 @@ export default function AdminPage() {
                 <img
                   src={teamImageDataUrl}
                   alt="Team member preview"
-                  className="h-40 w-full max-w-sm rounded-xl border border-gray-200 object-cover"
+                  className="aspect-square w-full max-w-sm rounded-xl border border-gray-200 bg-gray-50 p-2 object-contain"
                 />
               )}
 
@@ -1210,7 +1210,9 @@ export default function AdminPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {teamMembers.map((member) => (
                   <article key={member.id} className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-                    <img src={member.imageDataUrl} alt={member.name} className="h-48 w-full object-cover" />
+                    <div className="aspect-square w-full bg-white p-2">
+                      <img src={member.imageDataUrl} alt={member.name} className="h-full w-full object-contain" />
+                    </div>
                     <div className="space-y-3 p-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-primary">
