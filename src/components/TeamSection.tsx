@@ -48,13 +48,13 @@ export default function TeamSection() {
         )}
 
         {!loading && leadership.length > 0 && (
-          <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="mb-10 grid grid-cols-1 gap-6 justify-items-center md:grid-cols-2">
             {leadership.map((member) => (
-              <article key={member.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <div className="h-56 w-full bg-gray-100">
-                  <img src={member.imageDataUrl} alt={member.name} className="h-full w-full object-cover" />
+              <article key={member.id} className="w-full max-w-[260px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="aspect-square w-full bg-gray-100 p-2">
+                  <img src={member.imageDataUrl} alt={member.name} className="h-full w-full object-contain" />
                 </div>
-                <div className="p-5 text-left">
+                <div className="p-4 text-center">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">{roleLabel(member.role)}</p>
                   <h3 className="text-xl font-bold text-secondary">{member.name}</h3>
                 </div>
@@ -66,13 +66,13 @@ export default function TeamSection() {
         {!loading && instructors.length > 0 && (
           <>
             <h3 className="mb-4 text-2xl font-bold text-secondary">Language Instructors</h3>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 justify-items-center sm:grid-cols-2 lg:grid-cols-3">
               {instructors.map((member) => (
-                <article key={member.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-                  <div className="h-56 w-full bg-gray-100">
-                    <img src={member.imageDataUrl} alt={member.name} className="h-full w-full object-cover" />
+                <article key={member.id} className="w-full max-w-[260px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                  <div className="aspect-square w-full bg-gray-100 p-2">
+                    <img src={member.imageDataUrl} alt={member.name} className="h-full w-full object-contain" />
                   </div>
-                  <div className="p-4 text-left">
+                  <div className="p-4 text-center">
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">{roleLabel(member.role)}</p>
                     <h4 className="text-lg font-bold text-secondary">{member.name}</h4>
                   </div>
