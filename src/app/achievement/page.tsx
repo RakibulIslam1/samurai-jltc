@@ -50,11 +50,11 @@ export default function AchievementPage() {
               className="group mb-6 break-inside-avoid overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
             >
               {/* Trophy badge */}
-              <div className="relative overflow-hidden bg-gray-100">
+              <div className="relative aspect-square overflow-hidden bg-gray-100 p-2">
                 <img
                   src={item.imageDataUrl}
                   alt={item.description || 'Achievement'}
-                  className="w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
                 />
                 <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2 py-1 text-xs font-bold text-yellow-600 shadow-sm backdrop-blur-sm">
                   🏆 Achievement
@@ -63,9 +63,6 @@ export default function AchievementPage() {
               <div className="space-y-2 p-4">
                 <p className="text-sm font-medium leading-relaxed text-gray-800">
                   {item.description || 'Samurai JLTC achievement.'}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {new Date(item.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
             </article>

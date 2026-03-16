@@ -1032,7 +1032,7 @@ export default function AdminPage() {
                 <img
                   src={galleryImageDataUrl}
                   alt="Gallery preview"
-                  className="h-40 w-full max-w-sm rounded-xl border border-gray-200 object-cover"
+                  className="aspect-square w-full max-w-sm rounded-xl border border-gray-200 bg-gray-50 p-2 object-contain"
                 />
               )}
               <button type="submit" disabled={uploadingGallery} className="btn-primary disabled:opacity-70">
@@ -1052,7 +1052,9 @@ export default function AdminPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {galleryItems.map((item) => (
                   <article key={item.id} className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-                    <img src={item.imageDataUrl} alt={item.description || 'Gallery image'} className="h-48 w-full object-cover" />
+                    <div className="aspect-square w-full bg-white p-2">
+                      <img src={item.imageDataUrl} alt={item.description || 'Gallery image'} className="h-full w-full object-contain" />
+                    </div>
                     <div className="space-y-3 p-3">
                       <p className="text-sm text-gray-700">{item.description}</p>
                       <div className="flex items-center justify-between gap-2">
@@ -1097,7 +1099,7 @@ export default function AdminPage() {
                 <img
                   src={achievementImageDataUrl}
                   alt="Achievement preview"
-                  className="h-40 w-full max-w-sm rounded-xl border border-gray-200 object-cover"
+                  className="aspect-square w-full max-w-sm rounded-xl border border-gray-200 bg-gray-50 p-2 object-contain"
                 />
               )}
               <button type="submit" disabled={uploadingAchievement} className="btn-primary disabled:opacity-70">
@@ -1117,7 +1119,9 @@ export default function AdminPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {achievementItems.map((item) => (
                   <article key={item.id} className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-                    <img src={item.imageDataUrl} alt={item.description || 'Achievement image'} className="h-48 w-full object-cover" />
+                    <div className="aspect-square w-full bg-white p-2">
+                      <img src={item.imageDataUrl} alt={item.description || 'Achievement image'} className="h-full w-full object-contain" />
+                    </div>
                     <div className="space-y-3 p-3">
                       <p className="text-sm text-gray-700">{item.description}</p>
                       <div className="flex items-center justify-between gap-2">

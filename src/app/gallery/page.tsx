@@ -40,19 +40,16 @@ export default function GalleryPage() {
               key={item.id}
               className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
             >
-              <div className="relative h-64 w-full overflow-hidden bg-gray-100">
+              <div className="relative aspect-square w-full overflow-hidden bg-gray-100 p-2">
                 <img
                   src={item.imageDataUrl}
                   alt={item.description || 'Gallery image'}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
               <div className="space-y-2 p-4">
                 <p className="line-clamp-3 text-sm leading-relaxed text-gray-700">
                   {item.description || 'Samurai Japanese Language Training Center gallery image.'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Uploaded on {new Date(item.createdAt).toLocaleDateString()}
                 </p>
               </div>
             </article>
