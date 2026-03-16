@@ -10,8 +10,8 @@ const baseNavLinks = [
   { href: '/about', label: 'About' },
   { href: '/services', label: 'Services' },
   { href: '/gallery', label: 'Gallery' },
+  { href: '/achievement', label: 'Achievement' },
   { href: '/contact', label: 'Contact' },
-  { href: '/contact#enroll', label: 'Enroll Now' },
 ]
 
 function UserIcon() {

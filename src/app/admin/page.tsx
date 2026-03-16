@@ -15,8 +15,9 @@ import { getFirestoreDb } from '@/lib/firebase'
 import { useAuth } from '@/components/AuthProvider'
 import { defaultSiteContactSettings, type SiteContactSettings } from '@/lib/siteContact'
 import type { GalleryItem } from '@/lib/gallery'
+import type { AchievementItem } from '@/lib/achievement'
 
-type AdminTab = 'profiles' | 'messages' | 'contact' | 'gallery' | 'admins'
+type AdminTab = 'profiles' | 'messages' | 'contact' | 'gallery' | 'achievement' | 'admins'
 
 type UserRow = {
   uid: string
@@ -94,6 +95,13 @@ export default function AdminPage() {
   const [galleryImageDataUrl, setGalleryImageDataUrl] = useState('')
   const [uploadingGallery, setUploadingGallery] = useState(false)
   const [deletingGalleryId, setDeletingGalleryId] = useState('')
+
+  const [achievementItems, setAchievementItems] = useState<AchievementItem[]>([])
+  const [achievementLoading, setAchievementLoading] = useState(false)
+  const [achievementDescription, setAchievementDescription] = useState('')
+  const [achievementImageDataUrl, setAchievementImageDataUrl] = useState('')
+  const [uploadingAchievement, setUploadingAchievement] = useState(false)
+  const [deletingAchievementId, setDeletingAchievementId] = useState('')
 
   const [adminEmailInput, setAdminEmailInput] = useState('')
   const [adminActionLoading, setAdminActionLoading] = useState(false)
@@ -238,10 +246,43 @@ export default function AdminPage() {
     }
   }
 
+  const loadAchievementItems = async () => {
+    const db = getFirestoreDb()
+    if (!db) {
+      setError('Firestore is not configured. Add NEXT_PUBLIC_FIREBASE_* variables.')
+      return
+    }
+
+    setAchievementLoading(true)
+    try {
+      const snap = await getDocs(collection(db, 'achievementItems'))
+      const items = snap.docs
+        .map((docItem) => {
+          const data = docItem.data() as Partial<AchievementItem>
+          return {
+            id: docItem.id,
+            imageDataUrl: data.imageDataUrl || '',
+            description: data.description || '',
+            createdAt: toTimestampValue(data.createdAt),
+            updatedAt: toTimestampValue(data.updatedAt),
+            uploadedBy: data.uploadedBy,
+          }
+        })
+        .filter((item) => item.imageDataUrl)
+        .sort((a, b) => b.createdAt - a.createdAt)
+
+      setAchievementItems(items)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load achievement items.')
+    } finally {
+      setAchievementLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (loading || !user || !isAdmin) return
     setError('')
-    void Promise.all([loadProfiles(), loadThreads(), loadContactSettings(), loadGalleryItems()])
+    void Promise.all([loadProfiles(), loadThreads(), loadContactSettings(), loadGalleryItems(), loadAchievementItems()])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user?.id, isAdmin])
 
@@ -428,6 +469,83 @@ export default function AdminPage() {
     }
   }
 
+  const onAchievementFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file for achievement.')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image is too large. Please upload an image under 5 MB.')
+      return
+    }
+
+    try {
+      const dataUrl = await readAsDataUrl(file)
+      setAchievementImageDataUrl(dataUrl)
+      setError('')
+    } catch (fileError) {
+      setError(fileError instanceof Error ? fileError.message : 'Failed to read image file.')
+    }
+  }
+
+  const uploadAchievementItem = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!achievementImageDataUrl) {
+      setError('Please choose an image before uploading achievement.')
+      return
+    }
+
+    if (!achievementDescription.trim()) {
+      setError('Please add a short achievement description.')
+      return
+    }
+
+    const db = getFirestoreDb()
+    if (!db || !user) return
+
+    setUploadingAchievement(true)
+    setError('')
+    try {
+      await addDoc(collection(db, 'achievementItems'), {
+        imageDataUrl: achievementImageDataUrl,
+        description: achievementDescription.trim(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        uploadedBy: user.email,
+        serverUpdatedAt: serverTimestamp(),
+      })
+
+      setAchievementDescription('')
+      setAchievementImageDataUrl('')
+      await loadAchievementItems()
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Failed to upload achievement image.')
+    } finally {
+      setUploadingAchievement(false)
+    }
+  }
+
+  const deleteAchievementItem = async (id: string) => {
+    const db = getFirestoreDb()
+    if (!db) return
+
+    setDeletingAchievementId(id)
+    setError('')
+    try {
+      await deleteDoc(doc(db, 'achievementItems', id))
+      setAchievementItems((prev) => prev.filter((item) => item.id !== id))
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete achievement item.')
+    } finally {
+      setDeletingAchievementId('')
+    }
+  }
+
   const addAdmin = async () => {
     if (!adminEmailInput.trim()) return
     setAdminActionLoading(true)
@@ -511,6 +629,9 @@ export default function AdminPage() {
         </button>
         <button type="button" onClick={() => setActiveTab('gallery')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'gallery' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
           Gallery
+        </button>
+        <button type="button" onClick={() => setActiveTab('achievement')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'achievement' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
+          Achievement
         </button>
         {isSuperAdmin && (
           <button type="button" onClick={() => setActiveTab('admins')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'admins' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
@@ -776,6 +897,71 @@ export default function AdminPage() {
                           }}
                         >
                           {deletingGalleryId === item.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'achievement' && (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-xl font-bold text-secondary">Upload Achievement Image</h2>
+            <form onSubmit={uploadAchievementItem} className="space-y-4">
+              <input type="file" accept="image/*" onChange={onAchievementFileChange} />
+              <textarea
+                rows={2}
+                required
+                value={achievementDescription}
+                onChange={(event) => setAchievementDescription(event.target.value)}
+                placeholder="Write one-line achievement description"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              {achievementImageDataUrl && (
+                <img
+                  src={achievementImageDataUrl}
+                  alt="Achievement preview"
+                  className="h-40 w-full max-w-sm rounded-xl border border-gray-200 object-cover"
+                />
+              )}
+              <button type="submit" disabled={uploadingAchievement} className="btn-primary disabled:opacity-70">
+                {uploadingAchievement ? 'Uploading...' : 'Upload Achievement'}
+              </button>
+            </form>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-xl font-bold text-secondary">Achievement Items</h2>
+            {achievementLoading && <p className="text-sm text-gray-600">Loading achievement items...</p>}
+            {!achievementLoading && achievementItems.length === 0 && (
+              <p className="text-sm text-gray-600">No achievement images uploaded yet.</p>
+            )}
+
+            {!achievementLoading && achievementItems.length > 0 && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {achievementItems.map((item) => (
+                  <article key={item.id} className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                    <img src={item.imageDataUrl} alt={item.description || 'Achievement image'} className="h-48 w-full object-cover" />
+                    <div className="space-y-3 p-3">
+                      <p className="text-sm text-gray-700">{item.description}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-gray-500">{new Date(item.createdAt).toLocaleDateString()}</span>
+                        <button
+                          type="button"
+                          className="rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-200 disabled:opacity-70"
+                          disabled={deletingAchievementId === item.id}
+                          onClick={() => {
+                            if (window.confirm('Delete this achievement image?')) {
+                              void deleteAchievementItem(item.id)
+                            }
+                          }}
+                        >
+                          {deletingAchievementId === item.id ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
                     </div>
