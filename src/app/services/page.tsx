@@ -1,14 +1,12 @@
-import type { Metadata } from 'next'
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { loadCourses, type Course } from '@/lib/courses'
 
-export const metadata: Metadata = {
-  title: 'Services & Courses',
-  description:
-    'Explore Samurai Japanese Language Training Center services including language training, visa support, design, and IT solutions.',
-}
-
-const courses = [
+const defaultCourses: Course[] = [
   {
+    id: '1',
     icon: '🌱',
     level: 'N5-N4 & JFT',
     title: 'Japanese Language Training',
@@ -16,8 +14,11 @@ const courses = [
       'Language courses for complete beginners and progressing learners with conversation, vocabulary, grammar, reading, writing, and culture.',
     badge: 'Beginner',
     badgeColor: 'bg-green-100 text-green-800',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   },
   {
+    id: '2',
     icon: '📗',
     level: 'A to Z',
     title: 'Student Visa Support',
@@ -25,8 +26,11 @@ const courses = [
       'Complete support for student visa applications with document preparation and process guidance.',
     badge: 'Intermediate',
     badgeColor: 'bg-blue-100 text-blue-800',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   },
   {
+    id: '3',
     icon: '🏆',
     level: 'TITP / SSW / EHS',
     title: 'Working Visa Support',
@@ -34,8 +38,11 @@ const courses = [
       'Support for TITP, SSW and Engineer/Humanities/International Service visa categories.',
     badge: 'Advanced',
     badgeColor: 'bg-purple-100 text-purple-800',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   },
   {
+    id: '4',
     icon: '📝',
     level: 'Business & Investment',
     title: 'Business Visa',
@@ -43,8 +50,11 @@ const courses = [
       'Setup company and invest in Japan with a complete business visa consultancy process.',
     badge: 'Exam Prep',
     badgeColor: 'bg-red-100 text-red-800',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   },
   {
+    id: '5',
     icon: '💼',
     level: 'Architecture & Interior',
     title: 'Design Solutions',
@@ -52,8 +62,11 @@ const courses = [
       'Design solutions for architecture and interior projects through consultancy partnerships.',
     badge: 'Professional',
     badgeColor: 'bg-yellow-100 text-yellow-800',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   },
   {
+    id: '6',
     icon: '💬',
     level: 'Security / Web / Software / Hardware',
     title: 'IT Solutions',
@@ -61,6 +74,8 @@ const courses = [
       'IT solutions including system security, web development, software, and hardware support.',
     badge: 'Speaking',
     badgeColor: 'bg-orange-100 text-orange-800',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   },
 ]
 
@@ -110,6 +125,19 @@ const pricingTiers = [
 ]
 
 export default function ServicesPage() {
+  const [courses, setCourses] = useState<Course[]>(defaultCourses)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      const loaded = await loadCourses()
+      setCourses(loaded.length > 0 ? loaded : defaultCourses)
+      setLoading(false)
+    }
+    void load()
+  }, [])
+
   return (
     <>
       {/* Hero */}
@@ -140,7 +168,7 @@ export default function ServicesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {courses.map((course) => (
               <article
-                key={course.title}
+                key={course.id}
                 className="bg-white rounded-2xl p-6 border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200 flex flex-col"
               >
                 <div className="flex items-start justify-between mb-4">

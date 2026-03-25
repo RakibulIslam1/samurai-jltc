@@ -17,8 +17,9 @@ import { defaultSiteContactSettings, type SiteContactSettings } from '@/lib/site
 import type { GalleryItem } from '@/lib/gallery'
 import type { AchievementItem } from '@/lib/achievement'
 import type { TeamMember, TeamRole } from '@/lib/team'
+import { loadCourses, type Course } from '@/lib/courses'
 
-type AdminTab = 'profiles' | 'messages' | 'contact' | 'gallery' | 'achievement' | 'team' | 'admins'
+type AdminTab = 'profiles' | 'messages' | 'contact' | 'gallery' | 'achievement' | 'team' | 'courses' | 'admins'
 
 type UserRow = {
   uid: string
@@ -112,6 +113,17 @@ export default function AdminPage() {
   const [teamDescription, setTeamDescription] = useState('') // Only for instructor
   const [savingTeam, setSavingTeam] = useState(false)
   const [deletingTeamId, setDeletingTeamId] = useState('')
+
+  const [courses, setCourses] = useState<Course[]>([])
+  const [courseLoading, setCourseLoading] = useState(false)
+  const [courseIcon, setCourseIcon] = useState('')
+  const [courseLevel, setCourseLevel] = useState('')
+  const [courseTitle, setCourseTitle] = useState('')
+  const [courseDescription, setCourseDescription] = useState('')
+  const [courseBadge, setCourseBadge] = useState('')
+  const [courseBadgeColor, setCourseBadgeColor] = useState('bg-gray-100 text-gray-800')
+  const [savingCourse, setSavingCourse] = useState(false)
+  const [deletingCourseId, setDeletingCourseId] = useState('')
 
   const [adminEmailInput, setAdminEmailInput] = useState('')
   const [adminActionLoading, setAdminActionLoading] = useState(false)
@@ -339,6 +351,18 @@ export default function AdminPage() {
     }
   }
 
+  const loadCoursesFunc = async () => {
+    setCourseLoading(true)
+    try {
+      const loaded = await loadCourses()
+      setCourses(loaded)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load courses.')
+    } finally {
+      setCourseLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (loading || !user || !isAdmin) return
     setError('')
@@ -349,6 +373,7 @@ export default function AdminPage() {
       loadGalleryItems(),
       loadAchievementItems(),
       loadTeamMembers(),
+      loadCoursesFunc(),
     ])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user?.id, isAdmin])
@@ -714,6 +739,68 @@ export default function AdminPage() {
     }
   }
 
+  const saveCourse = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!courseTitle.trim()) {
+      setError('Course title is required.')
+      return
+    }
+
+    if (!courseIcon.trim() || !courseLevel.trim() || !courseDescription.trim() || !courseBadge.trim()) {
+      setError('All course fields are required.')
+      return
+    }
+
+    const db = getFirestoreDb()
+    if (!db || !user) return
+
+    setSavingCourse(true)
+    setError('')
+    try {
+      await addDoc(collection(db, 'courses'), {
+        icon: courseIcon.trim(),
+        level: courseLevel.trim(),
+        title: courseTitle.trim(),
+        description: courseDescription.trim(),
+        badge: courseBadge.trim(),
+        badgeColor: courseBadgeColor,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        uploadedBy: user.email,
+        serverUpdatedAt: serverTimestamp(),
+      })
+
+      setCourseIcon('')
+      setCourseLevel('')
+      setCourseTitle('')
+      setCourseDescription('')
+      setCourseBadge('')
+      setCourseBadgeColor('bg-gray-100 text-gray-800')
+      await loadCoursesFunc()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save course.')
+    } finally {
+      setSavingCourse(false)
+    }
+  }
+
+  const deleteCourse = async (id: string) => {
+    const db = getFirestoreDb()
+    if (!db) return
+
+    setDeletingCourseId(id)
+    setError('')
+    try {
+      await deleteDoc(doc(db, 'courses', id))
+      setCourses((prev) => prev.filter((item) => item.id !== id))
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete course.')
+    } finally {
+      setDeletingCourseId('')
+    }
+  }
+
   const addAdmin = async () => {
     if (!adminEmailInput.trim()) return
     setAdminActionLoading(true)
@@ -803,6 +890,9 @@ export default function AdminPage() {
         </button>
         <button type="button" onClick={() => setActiveTab('team')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'team' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
           Team
+        </button>
+        <button type="button" onClick={() => setActiveTab('courses')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'courses' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
+          Courses
         </button>
         {isSuperAdmin && (
           <button type="button" onClick={() => setActiveTab('admins')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'admins' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
@@ -1244,6 +1334,124 @@ export default function AdminPage() {
                           }}
                         >
                           {deletingTeamId === member.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'courses' && (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-2 text-xl font-bold text-secondary">Add/Edit Course</h2>
+            <p className="mb-4 text-sm text-gray-600">
+              Add a new course or edit existing ones displayed on the Services page.
+            </p>
+            <form onSubmit={saveCourse} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <input
+                  type="text"
+                  required
+                  value={courseIcon}
+                  onChange={(event) => setCourseIcon(event.target.value)}
+                  placeholder="Course icon (emoji recommended)"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <input
+                  type="text"
+                  required
+                  value={courseLevel}
+                  onChange={(event) => setCourseLevel(event.target.value)}
+                  placeholder="Course level (e.g., N5-N4 & JFT)"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <input
+                type="text"
+                required
+                value={courseTitle}
+                onChange={(event) => setCourseTitle(event.target.value)}
+                placeholder="Course title"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <textarea
+                rows={3}
+                required
+                value={courseDescription}
+                onChange={(event) => setCourseDescription(event.target.value)}
+                placeholder="Course description"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <input
+                  type="text"
+                  required
+                  value={courseBadge}
+                  onChange={(event) => setCourseBadge(event.target.value)}
+                  placeholder="Badge text (e.g., Beginner)"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <select
+                  value={courseBadgeColor}
+                  onChange={(event) => setCourseBadgeColor(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="bg-green-100 text-green-800">Green</option>
+                  <option value="bg-blue-100 text-blue-800">Blue</option>
+                  <option value="bg-purple-100 text-purple-800">Purple</option>
+                  <option value="bg-red-100 text-red-800">Red</option>
+                  <option value="bg-yellow-100 text-yellow-800">Yellow</option>
+                  <option value="bg-orange-100 text-orange-800">Orange</option>
+                  <option value="bg-gray-100 text-gray-800">Gray</option>
+                </select>
+              </div>
+              <button type="submit" disabled={savingCourse} className="btn-primary disabled:opacity-70">
+                {savingCourse ? 'Saving...' : 'Add Course'}
+              </button>
+            </form>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-xl font-bold text-secondary">Current Courses</h2>
+            {courseLoading && <p className="text-sm text-gray-600">Loading courses...</p>}
+            {!courseLoading && courses.length === 0 && (
+              <p className="text-sm text-gray-600">No courses added yet.</p>
+            )}
+
+            {!courseLoading && courses.length > 0 && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {courses.map((course) => (
+                  <article key={course.id} className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                    <div className="space-y-3 p-4">
+                      <div className="flex items-start justify-between">
+                        <span className="text-3xl">{course.icon}</span>
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${course.badgeColor}`}>
+                          {course.badge}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-primary uppercase">Level: {course.level}</p>
+                        <p className="text-sm font-bold text-secondary">{course.title}</p>
+                        <p className="text-xs text-gray-600 mt-2 line-clamp-2">{course.description}</p>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 pt-2">
+                        <span className="text-xs text-gray-500">{new Date(course.createdAt).toLocaleDateString()}</span>
+                        <button
+                          type="button"
+                          className="rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-200 disabled:opacity-70"
+                          disabled={deletingCourseId === course.id}
+                          onClick={() => {
+                            if (window.confirm('Delete this course?')) {
+                              void deleteCourse(course.id)
+                            }
+                          }}
+                        >
+                          {deletingCourseId === course.id ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
                     </div>
