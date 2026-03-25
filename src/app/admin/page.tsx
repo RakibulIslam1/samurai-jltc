@@ -10,6 +10,7 @@ import {
   getDocs,
   serverTimestamp,
   setDoc,
+  updateDoc,
 } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 import { useAuth } from '@/components/AuthProvider'
@@ -18,8 +19,9 @@ import type { GalleryItem } from '@/lib/gallery'
 import type { AchievementItem } from '@/lib/achievement'
 import type { TeamMember, TeamRole } from '@/lib/team'
 import { loadCourses, type Course } from '@/lib/courses'
+import { loadCourseBanners, type CourseBanner } from '@/lib/courseBanners'
 
-type AdminTab = 'profiles' | 'messages' | 'contact' | 'gallery' | 'achievement' | 'team' | 'courses' | 'admins'
+type AdminTab = 'profiles' | 'messages' | 'contact' | 'gallery' | 'achievement' | 'team' | 'courses' | 'banners' | 'admins'
 
 type UserRow = {
   uid: string
@@ -124,6 +126,19 @@ export default function AdminPage() {
   const [courseBadgeColor, setCourseBadgeColor] = useState('bg-gray-100 text-gray-800')
   const [savingCourse, setSavingCourse] = useState(false)
   const [deletingCourseId, setDeletingCourseId] = useState('')
+
+  const [banners, setBanners] = useState<CourseBanner[]>([])
+  const [bannerLoading, setBannerLoading] = useState(false)
+  const [editingBannerId, setEditingBannerId] = useState<string>('')
+  const [bannerName, setBannerName] = useState('')
+  const [bannerPrice, setBannerPrice] = useState('')
+  const [bannerDescription, setBannerDescription] = useState('')
+  const [bannerCTA, setBannerCTA] = useState('')
+  const [bannerIcon, setBannerIcon] = useState('')
+  const [bannerBgColor, setBannerBgColor] = useState('bg-white')
+  const [bannerHighlighted, setBannerHighlighted] = useState(false)
+  const [bannerFeatures, setBannerFeatures] = useState<string[]>([])
+  const [savingBannerId, setSavingBannerId] = useState('')
 
   const [adminEmailInput, setAdminEmailInput] = useState('')
   const [adminActionLoading, setAdminActionLoading] = useState(false)
@@ -363,6 +378,18 @@ export default function AdminPage() {
     }
   }
 
+  const loadBannersFunc = async () => {
+    setBannerLoading(true)
+    try {
+      const loaded = await loadCourseBanners()
+      setBanners(loaded)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load banners.')
+    } finally {
+      setBannerLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (loading || !user || !isAdmin) return
     setError('')
@@ -374,6 +401,7 @@ export default function AdminPage() {
       loadAchievementItems(),
       loadTeamMembers(),
       loadCoursesFunc(),
+      loadBannersFunc(),
     ])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user?.id, isAdmin])
@@ -801,6 +829,63 @@ export default function AdminPage() {
     }
   }
 
+  const editBanner = (banner: CourseBanner) => {
+    setEditingBannerId(banner.id)
+    setBannerName(banner.name)
+    setBannerPrice(banner.price)
+    setBannerDescription(banner.description)
+    setBannerCTA(banner.cta)
+    setBannerIcon(banner.icon)
+    setBannerBgColor(banner.bgColor)
+    setBannerHighlighted(banner.highlighted)
+    setBannerFeatures([...banner.features])
+  }
+
+  const saveBanner = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!bannerName.trim() || !bannerPrice.trim() || !bannerDescription.trim() || bannerFeatures.length === 0) {
+      setError('Banner name, price, description, and at least one feature are required.')
+      return
+    }
+
+    const db = getFirestoreDb()
+    if (!db || !user || !editingBannerId) return
+
+    setSavingBannerId(editingBannerId)
+    setError('')
+    try {
+      await updateDoc(doc(db, 'courseBanners', editingBannerId), {
+        name: bannerName.trim(),
+        price: bannerPrice.trim(),
+        description: bannerDescription.trim(),
+        cta: bannerCTA.trim() || 'Enroll Now',
+        icon: bannerIcon.trim(),
+        bgColor: bannerBgColor,
+        highlighted: bannerHighlighted,
+        features: bannerFeatures.filter((f) => f.trim()),
+        updatedAt: Date.now(),
+        uploadedBy: user.email,
+        serverUpdatedAt: serverTimestamp(),
+      })
+
+      setEditingBannerId('')
+      setBannerName('')
+      setBannerPrice('')
+      setBannerDescription('')
+      setBannerCTA('')
+      setBannerIcon('')
+      setBannerBgColor('bg-white')
+      setBannerHighlighted(false)
+      setBannerFeatures([])
+      await loadBannersFunc()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save banner.')
+    } finally {
+      setSavingBannerId('')
+    }
+  }
+
   const addAdmin = async () => {
     if (!adminEmailInput.trim()) return
     setAdminActionLoading(true)
@@ -893,6 +978,9 @@ export default function AdminPage() {
         </button>
         <button type="button" onClick={() => setActiveTab('courses')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'courses' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
           Courses
+        </button>
+        <button type="button" onClick={() => setActiveTab('banners')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'banners' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
+          Course Banners
         </button>
         {isSuperAdmin && (
           <button type="button" onClick={() => setActiveTab('admins')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'admins' ? 'bg-primary text-white' : 'bg-gray-100 text-secondary'}`}>
@@ -1460,6 +1548,200 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'banners' && (
+        <div className="space-y-5">
+          <h2 className="mb-6 text-2xl font-bold text-secondary">Edit Course Banners</h2>
+          <p className="mb-6 text-sm text-gray-600">
+            Edit the 3 course banners displayed on the Services page. All properties are editable including name, price, description, features, icon, and background color.
+          </p>
+
+          {bannerLoading && <p className="text-sm text-gray-600">Loading banners...</p>}
+          {!bannerLoading && banners.length === 0 && <p className="text-sm text-gray-600">No banners found.</p>}
+
+          {!bannerLoading && banners.length > 0 && (
+            <div className="grid grid-cols-1 gap-6">
+              {/* Banner Editing Grid - 3 Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {banners.map((banner) => (
+                  <div key={banner.id} className={`rounded-xl border-2 p-5 ${editingBannerId === banner.id ? 'border-primary bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="font-bold text-secondary">{banner.name}</h3>
+                      {banner.highlighted && <span className="rounded-full bg-gold px-2 py-1 text-xs font-bold text-white">POPULAR</span>}
+                    </div>
+                    <p className="mb-1 text-sm text-gray-600">{banner.price}</p>
+                    <p className="mb-3 text-xs text-gray-500">{banner.features.length} features</p>
+                    <button
+                      type="button"
+                      onClick={() => editBanner(banner)}
+                      className={`w-full rounded-lg px-3 py-2 text-sm font-semibold ${
+                        editingBannerId === banner.id
+                          ? 'bg-primary text-white'
+                          : 'border border-primary text-primary hover:bg-primary hover:text-white'
+                      }`}
+                    >
+                      {editingBannerId === banner.id ? 'Editing...' : 'Edit'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Editing Form */}
+              {editingBannerId && (
+                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 className="mb-4 text-lg font-bold text-secondary">Edit: {bannerName}</h3>
+                  <form onSubmit={saveBanner} className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-secondary">Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={bannerName}
+                          onChange={(e) => setBannerName(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-secondary">Price</label>
+                        <input
+                          type="text"
+                          required
+                          value={bannerPrice}
+                          onChange={(e) => setBannerPrice(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-secondary">Description</label>
+                      <input
+                        type="text"
+                        required
+                        value={bannerDescription}
+                        onChange={(e) => setBannerDescription(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-secondary">CTA Button Text</label>
+                        <input
+                          type="text"
+                          value={bannerCTA}
+                          onChange={(e) => setBannerCTA(e.target.value)}
+                          placeholder="e.g., Enroll Now"
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-secondary">Icon (Emoji)</label>
+                        <input
+                          type="text"
+                          value={bannerIcon}
+                          onChange={(e) => setBannerIcon(e.target.value)}
+                          placeholder="e.g., 📚"
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-secondary">Background Color</label>
+                        <select
+                          value={bannerBgColor}
+                          onChange={(e) => setBannerBgColor(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="bg-white">White</option>
+                          <option value="bg-gray-50">Light Gray</option>
+                          <option value="bg-secondary">Secondary (Dark Blue)</option>
+                          <option value="bg-primary">Primary (Red)</option>
+                          <option value="bg-blue-50">Light Blue</option>
+                        </select>
+                      </div>
+                      <div className="flex items-end">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={bannerHighlighted}
+                            onChange={(e) => setBannerHighlighted(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                          <span className="text-sm font-semibold text-secondary">Mark as "Most Popular"</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="text-sm font-semibold text-secondary">Features</label>
+                        <button
+                          type="button"
+                          onClick={() => setBannerFeatures([...bannerFeatures, ''])}
+                          className="text-xs font-semibold text-primary hover:underline"
+                        >
+                          + Add Feature
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {bannerFeatures.map((feature, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={feature}
+                              onChange={(e) => {
+                                const updated = [...bannerFeatures]
+                                updated[idx] = e.target.value
+                                setBannerFeatures(updated)
+                              }}
+                              placeholder="Feature text"
+                              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setBannerFeatures(bannerFeatures.filter((_, i) => i !== idx))}
+                              className="rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-200"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <button type="submit" disabled={savingBannerId === editingBannerId} className="flex-1 rounded-lg bg-primary px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:opacity-70">
+                        {savingBannerId === editingBannerId ? 'Saving...' : 'Save Banner'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingBannerId('')
+                          setBannerName('')
+                          setBannerPrice('')
+                          setBannerDescription('')
+                          setBannerCTA('')
+                          setBannerIcon('')
+                          setBannerBgColor('bg-white')
+                          setBannerHighlighted(false)
+                          setBannerFeatures([])
+                        }}
+                        className="rounded-lg border-2 border-gray-300 px-4 py-2 font-semibold text-secondary hover:bg-gray-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

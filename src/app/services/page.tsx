@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { loadCourses, type Course } from '@/lib/courses'
+import { loadCourseBanners, type CourseBanner } from '@/lib/courseBanners'
 
 const defaultCourses: Course[] = [
   {
@@ -79,60 +80,20 @@ const defaultCourses: Course[] = [
   },
 ]
 
-const pricingTiers = [
-  {
-    name: 'Beginner Level',
-    price: 'N5: 99,000 BDT',
-    period: '',
-    description: 'For complete beginners (N5-N4)',
-    features: [
-      'Basic Japanese and daily conversation',
-      'Grammar, vocabulary, reading, writing',
-      'Kanji writing and listening',
-      'N4: 120,000 BDT',
-    ],
-    cta: 'Enroll Now',
-    highlighted: false,
-  },
-  {
-    name: 'Intermediate Level',
-    price: 'N3: 150,000 BDT',
-    period: '',
-    description: 'Daily conversation possible',
-    features: [
-      'Complex grammar and expressions',
-      'Reading articles and practical content',
-      'Basic business Japanese situations',
-      'Communication-focused practice',
-    ],
-    cta: 'Enroll Now',
-    highlighted: true,
-  },
-  {
-    name: 'Advanced Level',
-    price: 'N2: 180,000 BDT',
-    period: '',
-    description: 'Fluent speaking level (N2-N1)',
-    features: [
-      'Specialized topic discussion',
-      'University-level reading and writing',
-      'Business Japanese and job preparation',
-      'N1: 200,000 BDT',
-    ],
-    cta: 'Enroll Now',
-    highlighted: false,
-  },
-]
-
 export default function ServicesPage() {
   const [courses, setCourses] = useState<Course[]>(defaultCourses)
+  const [banners, setBanners] = useState<CourseBanner[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      const loaded = await loadCourses()
-      setCourses(loaded.length > 0 ? loaded : defaultCourses)
+      const [loadedCourses, loadedBanners] = await Promise.all([
+        loadCourses(),
+        loadCourseBanners(),
+      ])
+      setCourses(loadedCourses.length > 0 ? loadedCourses : defaultCourses)
+      setBanners(loadedBanners)
       setLoading(false)
     }
     void load()
@@ -204,19 +165,25 @@ export default function ServicesPage() {
             Course fees for beginner, intermediate, and advanced Japanese language tracks.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {pricingTiers.map((tier) => (
+            {banners.map((tier) => (
               <div
-                key={tier.name}
+                key={tier.id}
                 className={`rounded-2xl p-8 border flex flex-col ${
                   tier.highlighted
-                    ? 'bg-secondary text-white border-secondary shadow-xl scale-105'
-                    : 'bg-white border-gray-200'
+                    ? tier.bgColor + ' text-white border-secondary shadow-xl scale-105'
+                    : tier.bgColor + ' border-gray-200'
                 }`}
               >
+                {tier.icon && !tier.highlighted && (
+                  <span className="text-4xl mb-3" aria-hidden="true">{tier.icon}</span>
+                )}
                 {tier.highlighted && (
-                  <p className="text-gold text-xs font-bold uppercase tracking-widest mb-3">
-                    Most Popular
-                  </p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-gold text-xs font-bold uppercase tracking-widest">
+                      Most Popular
+                    </p>
+                    {tier.icon && <span className="text-4xl" aria-hidden="true">{tier.icon}</span>}
+                  </div>
                 )}
                 <h3 className={`text-2xl font-bold mb-1 ${tier.highlighted ? 'text-white' : 'text-secondary'}`}>
                   {tier.name}
@@ -227,9 +194,6 @@ export default function ServicesPage() {
                 <div className="mb-6">
                   <span className={`text-4xl font-extrabold ${tier.highlighted ? 'text-white' : 'text-primary'}`}>
                     {tier.price}
-                  </span>
-                  <span className={`text-sm ${tier.highlighted ? 'text-gray-300' : 'text-gray-500'}`}>
-                    {tier.period}
                   </span>
                 </div>
                 <ul className="space-y-3 mb-8 flex-1 text-left">
@@ -250,7 +214,7 @@ export default function ServicesPage() {
                       : 'border-2 border-primary text-primary hover:bg-primary hover:text-white'
                   }`}
                 >
-                  {tier.cta}
+                  {tier.cta || 'Enroll Now'}
                 </Link>
               </div>
             ))}
