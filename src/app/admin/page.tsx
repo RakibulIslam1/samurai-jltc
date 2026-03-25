@@ -1673,7 +1673,7 @@ export default function AdminPage() {
                             onChange={(e) => setBannerHighlighted(e.target.checked)}
                             className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                           />
-                          <span className="text-sm font-semibold text-secondary">Mark as "Most Popular"</span>
+                          <span className="text-sm font-semibold text-secondary">Mark as &quot;Most Popular&quot;</span>
                         </label>
                       </div>
                     </div>
