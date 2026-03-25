@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp } from 'firebase/app'
-import { getAuth, type Auth } from 'firebase/auth'
+import { getAuth, sendPasswordResetEmail, type Auth } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
 
 const firebaseConfig = {
@@ -48,4 +48,13 @@ export function getFirestoreDb() {
 
   firestoreInstance = getFirestore(app)
   return firestoreInstance
+}
+
+export async function sendPasswordReset(email: string) {
+  const auth = getFirebaseAuth()
+  if (!auth) {
+    throw new Error('Authentication is not configured.')
+  }
+
+  await sendPasswordResetEmail(auth, email)
 }

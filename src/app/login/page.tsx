@@ -116,6 +116,13 @@ export default function LoginPage() {
             onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
             className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
           />
+          {mode === 'signin' && (
+            <p className="-mt-1 text-right text-sm">
+              <Link href="/forgot-password" className="font-semibold text-primary hover:underline">
+                Forgot Password?
+              </Link>
+            </p>
+          )}
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
