@@ -1,4 +1,8 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { defaultSiteContactSettings, loadSiteContactSettings, type SiteContactSettings } from '@/lib/siteContact'
 
 const footerLinks = [
   { href: '/', label: 'Home' },
@@ -8,6 +12,16 @@ const footerLinks = [
 ]
 
 export default function Footer() {
+  const [settings, setSettings] = useState<SiteContactSettings>(defaultSiteContactSettings)
+
+  useEffect(() => {
+    const load = async () => {
+      const loaded = await loadSiteContactSettings()
+      setSettings(loaded)
+    }
+    void load()
+  }, [])
+
   return (
     <footer className="bg-secondary text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -51,27 +65,29 @@ export default function Footer() {
               Contact
             </h2>
             <address className="not-italic space-y-2 text-gray-400 text-sm">
-              <p>📍 House-298, Shadinota Sharoni Road, Jamtula Mur, Uttar Badda, Dhaka-1212</p>
+              <p>📍 {settings.addressPrimary}</p>
+              {settings.addressSecondary && <p>📍 Japan: {settings.addressSecondary}</p>}
               <p>
                 📧{' '}
                 <a
-                  href="mailto:miahsuzan818@gmail.com"
+                  href={`mailto:${settings.email}`}
                   className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold rounded"
                 >
-                  miahsuzan818@gmail.com
+                  {settings.email}
                 </a>
               </p>
-              <p>
-                📞{' '}
-                <a
-                  href="tel:+8801601687773"
-                  className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold rounded"
-                >
-                  01601687773, 01967016700
-                </a>
-              </p>
-              <p>Japan Office: Tokyo-to Kita-ku Akabane Nishi 4-35-5 Sakauekup 101</p>
-              <p>Japan Mobile: +81 70-9039-4475</p>
+              {settings.phones && settings.phones.length > 0 && (
+                <p>
+                  📞{' '}
+                  <a
+                    href={`tel:${settings.phones[0]}`}
+                    className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold rounded"
+                  >
+                    {settings.phones.join(', ')}
+                  </a>
+                </p>
+              )}
+              {settings.officeHours && <p>⏰ {settings.officeHours}</p>}
             </address>
           </div>
         </div>
