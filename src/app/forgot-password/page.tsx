@@ -13,6 +13,10 @@ function toFriendlyError(error: unknown) {
   if (code === 'auth/invalid-email') return 'Please enter a valid email address.'
   if (code === 'auth/too-many-requests') return 'Too many attempts. Please try again later.'
   if (code === 'auth/network-request-failed') return 'Network issue. Check your connection and try again.'
+  if (code === 'auth/unauthorized-continue-uri') return 'Reset link domain is not authorized in Firebase.'
+  if (code === 'auth/invalid-continue-uri') return 'Reset link URL is invalid. Please contact admin.'
+  if (code === 'auth/missing-continue-uri') return 'Reset link URL is missing. Please contact admin.'
+  if (code === 'auth/operation-not-allowed') return 'Email/password sign-in is disabled in Firebase Auth.'
 
   return error instanceof Error ? error.message : 'Could not send reset email. Please try again.'
 }

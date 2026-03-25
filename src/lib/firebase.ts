@@ -56,5 +56,12 @@ export async function sendPasswordReset(email: string) {
     throw new Error('Authentication is not configured.')
   }
 
-  await sendPasswordResetEmail(auth, email)
+  const nextEmail = email.trim().toLowerCase()
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+
+  // Use current app origin as continue URL so Firebase can generate a valid action link.
+  await sendPasswordResetEmail(auth, nextEmail, {
+    url: origin ? `${origin}/login` : 'https://samurai-jltc.firebaseapp.com/login',
+    handleCodeInApp: false,
+  })
 }
