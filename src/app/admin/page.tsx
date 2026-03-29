@@ -863,6 +863,7 @@ export default function AdminPage() {
         bgColor: bannerBgColor,
         highlighted: bannerHighlighted,
         features: bannerFeatures.filter((f) => f.trim()),
+        createdAt: Date.now(),
         updatedAt: Date.now(),
         uploadedBy: user.email,
         serverUpdatedAt: serverTimestamp(),

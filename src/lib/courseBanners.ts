@@ -1,4 +1,4 @@
-import { collection, getDocs, orderBy, query } from 'firebase/firestore'
+import { collection, getDocs } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 
 export type CourseBanner = {
@@ -85,8 +85,8 @@ export async function loadCourseBanners(): Promise<CourseBanner[]> {
     const db = getFirestoreDb()
     if (!db) return DEFAULT_BANNERS.map((b, i) => ({ id: `tier${i + 1}`, ...b }))
 
-    const snap = await getDocs(query(collection(db, 'courseBanners'), orderBy('createdAt', 'asc')))
-    
+    const snap = await getDocs(collection(db, 'courseBanners'))
+
     if (snap.empty) {
       return DEFAULT_BANNERS.map((b, i) => ({ id: `tier${i + 1}`, ...b }))
     }
@@ -109,7 +109,7 @@ export async function loadCourseBanners(): Promise<CourseBanner[]> {
           uploadedBy: data.uploadedBy,
         }
       })
-      .sort((a, b) => a.createdAt - b.createdAt)
+      .sort((a, b) => a.id.localeCompare(b.id))
   } catch {
     return DEFAULT_BANNERS.map((b, i) => ({ id: `tier${i + 1}`, ...b }))
   }
