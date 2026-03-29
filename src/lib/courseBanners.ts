@@ -81,36 +81,38 @@ const DEFAULT_BANNERS: Omit<CourseBanner, 'id'>[] = [
 ]
 
 export async function loadCourseBanners(): Promise<CourseBanner[]> {
+  // Always start with all 3 defaults so every tier is present even if not yet in Firestore
+  const defaults = DEFAULT_BANNERS.map((b, i) => ({ id: `tier${i + 1}`, ...b }))
+
   try {
     const db = getFirestoreDb()
-    if (!db) return DEFAULT_BANNERS.map((b, i) => ({ id: `tier${i + 1}`, ...b }))
+    if (!db) return defaults
 
     const snap = await getDocs(collection(db, 'courseBanners'))
 
-    if (snap.empty) {
-      return DEFAULT_BANNERS.map((b, i) => ({ id: `tier${i + 1}`, ...b }))
-    }
-
-    return snap.docs
-      .map((docItem) => {
-        const data = docItem.data() as Partial<CourseBanner>
-        return {
-          id: docItem.id,
-          name: data.name || '',
-          price: data.price || '',
-          description: data.description || '',
-          features: Array.isArray(data.features) ? data.features : [],
-          cta: data.cta || 'Enroll Now',
-          icon: data.icon || '📚',
-          bgColor: data.bgColor || 'bg-white',
-          highlighted: Boolean(data.highlighted),
-          createdAt: toTimestampValue(data.createdAt),
-          updatedAt: toTimestampValue(data.updatedAt),
-          uploadedBy: data.uploadedBy,
-        }
+    // Build a map of Firestore docs by id, then merge over defaults
+    const firestoreMap = new Map<string, CourseBanner>()
+    snap.docs.forEach((docItem) => {
+      const data = docItem.data() as Partial<CourseBanner>
+      firestoreMap.set(docItem.id, {
+        id: docItem.id,
+        name: data.name || '',
+        price: data.price || '',
+        description: data.description || '',
+        features: Array.isArray(data.features) ? data.features : [],
+        cta: data.cta || 'Enroll Now',
+        icon: data.icon || '📚',
+        bgColor: data.bgColor || 'bg-white',
+        highlighted: Boolean(data.highlighted),
+        createdAt: toTimestampValue(data.createdAt),
+        updatedAt: toTimestampValue(data.updatedAt),
+        uploadedBy: data.uploadedBy,
       })
-      .sort((a, b) => a.id.localeCompare(b.id))
+    })
+
+    // Firestore doc overrides default; missing tiers keep their default
+    return defaults.map((d) => firestoreMap.get(d.id) ?? d)
   } catch {
-    return DEFAULT_BANNERS.map((b, i) => ({ id: `tier${i + 1}`, ...b }))
+    return defaults
   }
 }
