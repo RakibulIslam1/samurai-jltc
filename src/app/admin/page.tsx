@@ -10,7 +10,6 @@ import {
   getDocs,
   serverTimestamp,
   setDoc,
-  updateDoc,
 } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 import { useAuth } from '@/components/AuthProvider'
@@ -855,7 +854,7 @@ export default function AdminPage() {
     setSavingBannerId(editingBannerId)
     setError('')
     try {
-      await updateDoc(doc(db, 'courseBanners', editingBannerId), {
+      await setDoc(doc(db, 'courseBanners', editingBannerId), {
         name: bannerName.trim(),
         price: bannerPrice.trim(),
         description: bannerDescription.trim(),
@@ -867,7 +866,7 @@ export default function AdminPage() {
         updatedAt: Date.now(),
         uploadedBy: user.email,
         serverUpdatedAt: serverTimestamp(),
-      })
+      }, { merge: true })
 
       setEditingBannerId('')
       setBannerName('')
