@@ -1,7 +1,7 @@
 import { collection, getDocs } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 
-export type TeamRole = 'chairman' | 'managing-director' | 'instructor'
+export type TeamRole = 'chairman' | 'managing-director' | 'instructor' | 'custom'
 
 export type TeamMember = {
   id: string
@@ -11,7 +11,8 @@ export type TeamMember = {
   createdAt: number
   updatedAt: number
   uploadedBy?: string
-  description?: string // Only for instructors
+  description?: string
+  customRole?: string
 }
 
 function toTimestampValue(value: unknown) {
@@ -33,7 +34,7 @@ export async function loadTeamMembers(): Promise<TeamMember[]> {
       .map((docItem) => {
         const data = docItem.data() as Partial<TeamMember>
         const role = data.role
-        if (role !== 'chairman' && role !== 'managing-director' && role !== 'instructor') {
+        if (role !== 'chairman' && role !== 'managing-director' && role !== 'instructor' && role !== 'custom') {
           return null
         }
 
@@ -45,6 +46,8 @@ export async function loadTeamMembers(): Promise<TeamMember[]> {
           createdAt: toTimestampValue(data.createdAt),
           updatedAt: toTimestampValue(data.updatedAt),
           uploadedBy: data.uploadedBy,
+          ...(data.description && { description: data.description }),
+          ...(role === 'custom' && data.customRole ? { customRole: data.customRole } : {}),
         }
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item && item.name && item.imageDataUrl))
@@ -53,15 +56,13 @@ export async function loadTeamMembers(): Promise<TeamMember[]> {
       chairman: 0,
       'managing-director': 1,
       instructor: 2,
+      custom: 3,
     }
 
     return items.sort((a, b) => {
       const rankDiff = roleRank[a.role] - roleRank[b.role]
       if (rankDiff !== 0) return rankDiff
-      if (a.role === 'instructor' && b.role === 'instructor') {
-        return b.createdAt - a.createdAt
-      }
-      return 0
+      return b.createdAt - a.createdAt
     })
   } catch {
     return []

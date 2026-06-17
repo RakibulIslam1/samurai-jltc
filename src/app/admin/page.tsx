@@ -111,7 +111,8 @@ export default function AdminPage() {
   const [teamName, setTeamName] = useState('')
   const [teamRole, setTeamRole] = useState<TeamRole>('instructor')
   const [teamImageDataUrl, setTeamImageDataUrl] = useState('')
-  const [teamDescription, setTeamDescription] = useState('') // Only for instructor
+  const [teamDescription, setTeamDescription] = useState('')
+  const [teamCustomRole, setTeamCustomRole] = useState('')
   const [savingTeam, setSavingTeam] = useState(false)
   const [deletingTeamId, setDeletingTeamId] = useState('')
 
@@ -329,32 +330,33 @@ export default function AdminPage() {
         chairman: 0,
         'managing-director': 1,
         instructor: 2,
+        custom: 3,
       }
 
       const items = snap.docs
         .map((docItem) => {
           const data = docItem.data() as Partial<TeamMember>
-          if (data.role !== 'chairman' && data.role !== 'managing-director' && data.role !== 'instructor') {
+          const role = data.role
+          if (role !== 'chairman' && role !== 'managing-director' && role !== 'instructor' && role !== 'custom') {
             return null
           }
           return {
             id: docItem.id,
-            role: data.role,
+            role,
             name: data.name || '',
             imageDataUrl: data.imageDataUrl || '',
             createdAt: toTimestampValue(data.createdAt),
             updatedAt: toTimestampValue(data.updatedAt),
             uploadedBy: data.uploadedBy,
+            ...(data.description && { description: data.description }),
+            ...(role === 'custom' && data.customRole ? { customRole: data.customRole } : {}),
           }
         })
         .filter((item): item is NonNullable<typeof item> => Boolean(item && item.name && item.imageDataUrl))
         .sort((a, b) => {
           const rankDiff = roleRank[a.role] - roleRank[b.role]
           if (rankDiff !== 0) return rankDiff
-          if (a.role === 'instructor' && b.role === 'instructor') {
-            return b.createdAt - a.createdAt
-          }
-          return 0
+          return b.createdAt - a.createdAt
         })
 
       setTeamMembers(items)
@@ -706,6 +708,11 @@ export default function AdminPage() {
       return
     }
 
+    if (teamRole === 'custom' && !teamCustomRole.trim()) {
+      setError('Please enter a custom role name.')
+      return
+    }
+
     const db = getFirestoreDb()
     if (!db || !user) return
 
@@ -719,7 +726,8 @@ export default function AdminPage() {
         updatedAt: Date.now(),
         uploadedBy: user.email,
         serverUpdatedAt: serverTimestamp(),
-        description: teamRole === 'instructor' ? teamDescription.trim() : undefined,
+        ...(teamRole === 'instructor' && { description: teamDescription.trim() }),
+        ...(teamRole === 'custom' && { customRole: teamCustomRole.trim() }),
       }
 
       if (teamRole === 'chairman' || teamRole === 'managing-director') {
@@ -742,6 +750,7 @@ export default function AdminPage() {
       setTeamRole('instructor')
       setTeamImageDataUrl('')
       setTeamDescription('')
+      setTeamCustomRole('')
       await loadTeamMembers()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Failed to save team member.')
@@ -1345,14 +1354,29 @@ export default function AdminPage() {
                 />
                 <select
                   value={teamRole}
-                  onChange={(event) => setTeamRole(event.target.value as TeamRole)}
+                  onChange={(event) => {
+                    setTeamRole(event.target.value as TeamRole)
+                    setTeamCustomRole('')
+                  }}
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="chairman">Chairman</option>
                   <option value="managing-director">Managing Director</option>
                   <option value="instructor">Language Instructor</option>
+                  <option value="custom">Custom Role</option>
                 </select>
               </div>
+
+              {teamRole === 'custom' && (
+                <input
+                  type="text"
+                  required
+                  value={teamCustomRole}
+                  onChange={(event) => setTeamCustomRole(event.target.value)}
+                  placeholder="Enter custom role name (e.g. Advisor, Coordinator)"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              )}
 
               {teamRole === 'instructor' && (
                 <textarea
@@ -1402,7 +1426,9 @@ export default function AdminPage() {
                             ? 'Chairman'
                             : member.role === 'managing-director'
                               ? 'Managing Director'
-                              : 'Language Instructor'}
+                              : member.role === 'custom'
+                                ? (member.customRole || 'Custom Role')
+                                : 'Language Instructor'}
                         </p>
                         <p className="text-sm font-semibold text-secondary">{member.name}</p>
                         {member.role === 'instructor' && member.description && (

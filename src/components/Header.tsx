@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '@/components/AuthProvider'
@@ -43,7 +44,7 @@ export default function Header() {
           className="flex items-center gap-2 text-xl font-bold text-secondary hover:text-primary transition-colors"
           aria-label="Samurai JLTC – Home"
         >
-          <span aria-hidden="true">⛩</span>
+          <Image src="/logo.png" alt="" width={36} height={36} className="rounded-full" priority />
           <span>Samurai JLTC</span>
         </Link>
 
